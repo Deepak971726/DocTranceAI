@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
+import { passwordSchema } from "@/lib/passwordValidation";
 
 const schema = z.object({
-  password: z.string().min(12, "Password must be at least 12 characters"),
+  password: passwordSchema,
 });
 type FormValues = z.infer<typeof schema>;
 
@@ -32,7 +33,9 @@ export default function ResetPasswordPage() {
           <div className="space-y-2 text-center">
             <p className="text-xs font-bold uppercase tracking-[0.3em] text-primary">Secure reset</p>
             <h1 className="font-display text-3xl font-semibold tracking-tight">Create a new password</h1>
-            <p className="text-sm text-muted-foreground">Use at least 12 characters for better account protection.</p>
+            <p className="text-sm text-muted-foreground">
+              Use at least 6 characters and combine different character types.
+            </p>
           </div>
 
           <form

@@ -54,7 +54,22 @@ api.interceptors.response.use(
 
 export function getApiErrorMessage(error: unknown): string {
   if (axios.isAxiosError<ApiErrorResponse>(error)) {
-    return error.response?.data.error?.message ?? error.message ?? "Request failed.";
+    const data = error.response?.data;
+    const apiMessage =
+      data && typeof data === "object" && "error" in data
+        ? data.error?.message
+        : undefined;
+
+    if (apiMessage) {
+      return apiMessage;
+    }
+    if (!error.response) {
+      return "Cannot reach the DocTraceAI API. Check that the backend is running and try again.";
+    }
+    if (error.response.status >= 500) {
+      return "The server could not complete the request. Please try again.";
+    }
+    return error.message || "Request failed.";
   }
   if (error instanceof Error) {
     return error.message;

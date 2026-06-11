@@ -7,7 +7,7 @@ const plans = [
     name: "Free",
     price: "$0",
     description: "For trying document intelligence.",
-    features: ["5 documents", "100 questions", "100 MB storage", "Local Ollama-ready"],
+    features: ["Unlimited documents", "100 questions", "100 MB storage", "Local Ollama-ready"],
   },
   {
     name: "Pro",
@@ -55,4 +55,3 @@ export function PricingCards() {
     </div>
   );
 }
-

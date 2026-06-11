@@ -10,7 +10,12 @@ from uuid import UUID
 from qdrant_client import AsyncQdrantClient, models
 
 from app.core.config import Settings
-from app.core.logging import get_logger
+from app.core.logging import (
+    get_logger,
+    log_process_failed,
+    log_process_finished,
+    log_process_started,
+)
 from app.exceptions import VectorDatabaseError
 
 logger = get_logger(__name__)
@@ -43,6 +48,12 @@ class QdrantVectorStore:
 
     async def ensure_collection(self) -> None:
         """Create the vector collection and filter indexes idempotently."""
+        process = "Ensure vector collection"
+        log_process_started(
+            logger,
+            process,
+            collection=self.settings.qdrant_collection,
+        )
         try:
             exists = await self.client.collection_exists(self.settings.qdrant_collection)
             if not exists:
@@ -61,16 +72,20 @@ class QdrantVectorStore:
                         field_name=field,
                         field_schema=models.PayloadSchemaType.KEYWORD,
                     )
-                logger.info(
-                    "qdrant_collection_created — HNSW index and payload indexes initialized",
-                    collection=self.settings.qdrant_collection,
-                    dimensions=self.settings.embedding_dimensions,
-                )
         except Exception as exc:
-            logger.exception(
-                "qdrant_collection_setup_failed — vector store is unusable until this is resolved"
+            log_process_failed(
+                logger,
+                process,
+                collection=self.settings.qdrant_collection,
             )
             raise VectorDatabaseError() from exc
+        log_process_finished(
+            logger,
+            process,
+            collection=self.settings.qdrant_collection,
+            created=not exists,
+            dimensions=self.settings.embedding_dimensions,
+        )
 
     async def upsert_chunks(
         self,
@@ -83,6 +98,13 @@ class QdrantVectorStore:
         """Upsert chunk vectors using stable database-generated point IDs."""
         if len(chunks) != len(vectors):
             raise VectorDatabaseError("Chunk and vector counts do not match.")
+        process = "Store vectors"
+        log_process_started(
+            logger,
+            process,
+            collection=self.settings.qdrant_collection,
+            points=len(vectors),
+        )
         points = [
             models.PointStruct(
                 id=str(chunk.qdrant_point_id),
@@ -106,17 +128,15 @@ class QdrantVectorStore:
                 points=points,
                 wait=True,
             )
-            logger.info(
-                "qdrant_upsert_completed — chunk vectors written to collection",
-                collection=self.settings.qdrant_collection,
-                points=len(points),
-            )
         except Exception as exc:
-            logger.exception(
-                "qdrant_upsert_failed — vectors not persisted, document will not be searchable",
-                points=len(points),
-            )
+            log_process_failed(logger, process, points=len(points))
             raise VectorDatabaseError() from exc
+        log_process_finished(
+            logger,
+            process,
+            collection=self.settings.qdrant_collection,
+            points=len(points),
+        )
 
     async def search(
         self,
@@ -128,6 +148,14 @@ class QdrantVectorStore:
         score_threshold: float | None,
     ) -> list[VectorSearchHit]:
         """Search vectors with an unskippable tenant filter."""
+        process = "Vector search"
+        log_process_started(
+            logger,
+            process,
+            tenant=str(user_id),
+            selected_documents=len(document_ids or []),
+            top_k=top_k,
+        )
         must: list[models.FieldCondition] = [
             models.FieldCondition(
                 key="user_id",
@@ -152,14 +180,11 @@ class QdrantVectorStore:
                 with_vectors=False,
             )
         except Exception as exc:
-            logger.exception(
-                "qdrant_search_failed — vector query could not be executed",
-                tenant=str(user_id),
-                top_k=top_k,
-            )
+            log_process_failed(logger, process, tenant=str(user_id), top_k=top_k)
             raise VectorDatabaseError() from exc
-        logger.info(
-            "qdrant_search_completed",
+        log_process_finished(
+            logger,
+            process,
             tenant=str(user_id),
             hits=len(response.points),
             top_k=top_k,
@@ -175,6 +200,13 @@ class QdrantVectorStore:
 
     async def delete_document(self, *, user_id: UUID, document_id: UUID) -> None:
         """Delete vectors only when both tenant and document IDs match."""
+        process = "Delete document vectors"
+        log_process_started(
+            logger,
+            process,
+            tenant=str(user_id),
+            document_id=str(document_id),
+        )
         selector = models.FilterSelector(
             filter=models.Filter(
                 must=[
@@ -194,14 +226,16 @@ class QdrantVectorStore:
                 wait=True,
             )
         except Exception as exc:
-            logger.exception(
-                "qdrant_delete_failed — stale vectors may remain for this document",
+            log_process_failed(
+                logger,
+                process,
                 tenant=str(user_id),
                 document_id=str(document_id),
             )
             raise VectorDatabaseError() from exc
-        logger.info(
-            "qdrant_delete_completed — all vectors for document removed",
+        log_process_finished(
+            logger,
+            process,
             tenant=str(user_id),
             document_id=str(document_id),
         )

@@ -7,7 +7,7 @@ from uuid import UUID
 
 from app.constants.prompts import RAG_SYSTEM_PROMPT, RAG_USER_PROMPT
 from app.core.config import Settings
-from app.core.logging import get_logger
+from app.core.logging import get_logger, log_process_finished, log_process_started
 from app.integrations.embeddings import EmbeddingService
 from app.integrations.ollama import OllamaChatService
 from app.integrations.qdrant import QdrantVectorStore
@@ -48,6 +48,13 @@ class RAGService:
         top_k: int | None = None,
     ) -> RetrievalResult:
         """Embed a question and return grounded source chunks."""
+        log_process_started(
+            logger,
+            "Retrieve relevant chunks",
+            user_id=str(user_id),
+            selected_documents=len(document_ids or []),
+            top_k=top_k or self.settings.rag_top_k,
+        )
         logger.info(
             "rag_retrieval_started — embedding query and searching Qdrant",
             user_id=str(user_id),
@@ -62,6 +69,12 @@ class RAGService:
             document_ids=document_ids,
             top_k=top_k or self.settings.rag_top_k,
             score_threshold=self.settings.rag_score_threshold,
+        )
+        log_process_started(
+            logger,
+            "Build grounded context",
+            user_id=str(user_id),
+            hits=len(hits),
         )
         citations: list[Citation] = []
         context_blocks: list[str] = []
@@ -94,13 +107,40 @@ class RAGService:
             citations=len(citations),
             context_chars=sum(len(b) for b in context_blocks),
         )
-        return RetrievalResult(context="\n\n".join(context_blocks), citations=citations)
+        context = "\n\n".join(context_blocks)
+        log_process_finished(
+            logger,
+            "Build grounded context",
+            user_id=str(user_id),
+            citations=len(citations),
+            context_chars=len(context),
+        )
+        log_process_finished(
+            logger,
+            "Retrieve relevant chunks",
+            user_id=str(user_id),
+            hits=len(hits),
+            citations=len(citations),
+        )
+        return RetrievalResult(context=context, citations=citations)
 
     async def answer(self, *, question: str, retrieval: RetrievalResult) -> str:
         """Generate an answer constrained by retrieved context."""
+        log_process_started(
+            logger,
+            "Generate grounded answer",
+            citations=len(retrieval.citations),
+        )
         if not retrieval.citations:
             logger.info("rag_answer_skipped — no citations found, returning fallback message")
-            return "I could not find enough information in the selected documents."
+            answer = "I could not find enough information in the selected documents."
+            log_process_finished(
+                logger,
+                "Generate grounded answer",
+                citations=0,
+                answer_chars=len(answer),
+            )
+            return answer
         logger.info(
             "rag_answer_started — sending context to LLM for grounded answer",
             citations=len(retrieval.citations),
@@ -110,4 +150,10 @@ class RAGService:
             RAG_USER_PROMPT.format(question=question, context=retrieval.context),
         )
         logger.info("rag_answer_done", answer_chars=len(result))
+        log_process_finished(
+            logger,
+            "Generate grounded answer",
+            citations=len(retrieval.citations),
+            answer_chars=len(result),
+        )
         return result

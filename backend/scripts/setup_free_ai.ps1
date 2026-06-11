@@ -13,6 +13,6 @@ Write-Host "Downloading the local embedding model..."
 ollama pull nomic-embed-text
 
 Write-Host "Downloading the local chat model..."
-ollama pull qwen3:4b
+ollama pull llama3
 
 Write-Host "DocTraceAI free local AI models are ready."

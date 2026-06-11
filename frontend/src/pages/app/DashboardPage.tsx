@@ -55,10 +55,15 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <div className="rounded-xl border bg-card p-5">
+        <div className="min-w-0 rounded-xl border bg-card p-5">
           <p className="mb-4 font-medium">Usage trend</p>
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer
+              width="100%"
+              height="100%"
+              minWidth={0}
+              initialDimension={{ width: 480, height: 256 }}
+            >
               <AreaChart data={usageItems}>
                 <defs>
                   <linearGradient id="grad" x1="0" x2="0" y1="0" y2="1">

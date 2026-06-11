@@ -29,9 +29,9 @@ export function useUploadDocument() {
     onSuccess: () => {
       toast.success("Upload accepted. Processing has started.");
       void queryClient.invalidateQueries({ queryKey: queryKeys.documents() });
-      setProgress(0);
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
+    onSettled: () => setProgress(0),
   });
 
   return { ...mutation, progress };
@@ -55,4 +55,3 @@ export function useSearchDocuments() {
     onError: (error) => toast.error(getApiErrorMessage(error)),
   });
 }
-

@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Mail } from "lucide-react";
+import { ArrowRight, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -29,23 +29,32 @@ export default function LoginPage() {
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       className="w-full max-w-md"
     >
-      <Card className="glass-panel overflow-hidden">
+      <Card className="auth-card glass-panel overflow-hidden">
         <CardContent className="space-y-6 p-6 sm:p-8">
           <div className="space-y-2 text-center">
             <motion.div
-              className="mx-auto mb-4 h-1.5 w-24 rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500"
-              animate={{ opacity: [0.55, 1, 0.55], scaleX: [0.82, 1, 0.82] }}
-              transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
-            />
+              className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-600 text-white shadow-glow"
+              animate={{ y: [0, -4, 0], rotate: [0, 2, 0] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <LockKeyhole className="h-6 w-6" aria-hidden="true" />
+            </motion.div>
             <p className="text-xs font-bold uppercase tracking-[0.3em] text-primary">Welcome back</p>
-            <h1 className="font-display text-3xl font-semibold tracking-tight">Login to your workspace</h1>
-            <p className="text-sm text-muted-foreground">Continue where your document work stopped.</p>
+            <h1 className="font-display text-3xl font-semibold tracking-tight">Sign in to DocTraceAI</h1>
+            <p className="mx-auto max-w-sm text-sm leading-6 text-muted-foreground">
+              Continue securely to your documents, cited answers, and local AI workspace.
+            </p>
           </div>
 
           <AuthModeSwitch active="login" />
 
           <form className="space-y-4" onSubmit={form.handleSubmit((values) => login.mutate(values))}>
-            <div className="space-y-1.5">
+            <motion.div
+              className="space-y-1.5"
+              initial={{ opacity: 0, x: 14 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.12, duration: 0.35 }}
+            >
               <Label htmlFor="email">Email</Label>
               <div className="relative">
                 <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -62,9 +71,14 @@ export default function LoginPage() {
               {form.formState.errors.email && (
                 <p className="text-xs text-destructive">{form.formState.errors.email.message}</p>
               )}
-            </div>
+            </motion.div>
 
-            <div className="space-y-1.5">
+            <motion.div
+              className="space-y-1.5"
+              initial={{ opacity: 0, x: 14 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.18, duration: 0.35 }}
+            >
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Password</Label>
                 <Link to="/forgot-password" className="text-xs font-semibold text-primary hover:underline">
@@ -77,12 +91,26 @@ export default function LoginPage() {
                 error={form.formState.errors.password?.message}
                 {...form.register("password")}
               />
-            </div>
+            </motion.div>
 
-            <Button type="submit" variant="premium" size="lg" className="w-full" disabled={login.isPending}>
-              {login.isPending ? "Signing in..." : "Sign in"}
+            <Button
+              type="submit"
+              variant="premium"
+              size="lg"
+              className="group w-full"
+              disabled={login.isPending}
+            >
+              {login.isPending ? "Signing in..." : "Sign in securely"}
+              {!login.isPending && (
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              )}
             </Button>
           </form>
+
+          <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+            <ShieldCheck className="h-4 w-4 text-emerald-500" aria-hidden="true" />
+            Encrypted session and private document access
+          </div>
         </CardContent>
       </Card>
     </motion.div>

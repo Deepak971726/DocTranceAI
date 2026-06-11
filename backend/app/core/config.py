@@ -51,10 +51,12 @@ class Settings(BaseSettings):
     embedding_model: str = "nomic-embed-text"
     embedding_dimensions: int = Field(default=768, ge=32, le=4096)
     ollama_base_url: str = "http://localhost:11434"
-    ollama_chat_model: str = "qwen3:4b"
+    ollama_chat_model: str = "llama3:latest"
+    ollama_request_timeout_seconds: float = Field(default=1200.0, ge=30.0, le=1800.0)
+    ollama_keep_alive: str = "30m"
+    ollama_context_tokens: int = Field(default=2048, ge=1024, le=8192)
 
     max_upload_bytes: int = Field(default=25 * 1024 * 1024, ge=1024)
-    max_documents_free: int = Field(default=5, ge=1)
     chunk_size: int = Field(default=800, ge=200, le=4000)
     chunk_overlap: int = Field(default=150, ge=0, le=1000)
     rag_top_k: int = Field(default=6, ge=1, le=30)

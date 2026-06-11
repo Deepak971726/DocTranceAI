@@ -21,6 +21,7 @@ export function AppSidebar() {
       )}
 
       <aside
+        id="app-sidebar"
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r bg-card/90 shadow-soft backdrop-blur-xl transition-transform duration-200 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
@@ -31,8 +32,9 @@ export function AppSidebar() {
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden"
+            className="h-11 w-11 lg:hidden"
             onClick={() => dispatch(setMobileMenuOpen(false))}
+            aria-label="Close navigation"
           >
             <X className="h-5 w-5" />
           </Button>
@@ -43,6 +45,7 @@ export function AppSidebar() {
             <NavLink
               key={item.href}
               to={item.href}
+              end={item.href === "/documents"}
               onClick={() => dispatch(setMobileMenuOpen(false))}
               className={({ isActive }) =>
                 cn(

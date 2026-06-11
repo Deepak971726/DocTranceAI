@@ -10,15 +10,18 @@ export function TopNavbar() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const user = useAppSelector((s) => s.auth.user);
+  const mobileOpen = useAppSelector((s) => s.ui.mobileMenuOpen);
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-card/80 px-4 shadow-sm backdrop-blur-xl sm:px-6">
       <Button
         variant="ghost"
         size="icon"
-        className="lg:hidden"
-        onClick={() => dispatch(setMobileMenuOpen(true))}
+        className="h-11 w-11 lg:hidden"
+        onClick={() => dispatch(setMobileMenuOpen(!mobileOpen))}
         aria-label="Open navigation"
+        aria-controls="app-sidebar"
+        aria-expanded={mobileOpen}
       >
         <Menu className="h-5 w-5" />
       </Button>
@@ -41,6 +44,7 @@ export function TopNavbar() {
         <Button
           variant="ghost"
           size="icon"
+          className="h-11 w-11"
           onClick={() => { dispatch(logout()); navigate("/"); }}
           aria-label="Log out"
         >

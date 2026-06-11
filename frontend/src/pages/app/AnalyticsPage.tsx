@@ -15,8 +15,13 @@ export default function AnalyticsPage() {
         <CardHeader>
           <CardTitle>Questions and AI requests</CardTitle>
         </CardHeader>
-        <CardContent className="h-[28rem]">
-          <ResponsiveContainer width="100%" height="100%">
+        <CardContent className="h-[28rem] min-w-0">
+          <ResponsiveContainer
+            width="100%"
+            height="100%"
+            minWidth={0}
+            initialDimension={{ width: 720, height: 448 }}
+          >
             <BarChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="usage_date" tickFormatter={formatDate} />
@@ -31,4 +36,3 @@ export default function AnalyticsPage() {
     </div>
   );
 }
-

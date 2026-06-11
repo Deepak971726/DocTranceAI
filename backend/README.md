@@ -170,18 +170,20 @@ For Docker:
 docker compose up --build
 ```
 
-The compose stack starts API, worker, Qdrant, Ollama, and pulls `llama2` plus
+The compose stack starts API, worker, Qdrant, Ollama, and pulls `llama3` plus
 `nomic-embed-text`. PostgreSQL and file storage remain in Supabase.
 
 For the free local AI models:
 
 ```powershell
 ollama pull nomic-embed-text
-ollama pull qwen3:4b
+ollama pull llama3
 ```
 
-Keep `OLLAMA_BASE_URL=http://localhost:11434` in `.env`. No OpenAI account, API key, or
-per-request AI payment is required. Ollama uses this computer's CPU/GPU and memory.
+Keep `OLLAMA_BASE_URL=http://localhost:11434`,
+`OLLAMA_REQUEST_TIMEOUT_SECONDS=1200`, `OLLAMA_KEEP_ALIVE=30m`, and
+`OLLAMA_CONTEXT_TOKENS=2048` in `.env`. No OpenAI account, API key, or per-request AI payment is
+required. Ollama uses this computer's CPU/GPU and memory.
 
 Changing embedding model or dimensions requires a new Qdrant collection and re-indexing all
 documents. Do not point a collection at vectors of mixed dimensions.

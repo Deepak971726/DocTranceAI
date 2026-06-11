@@ -1,4 +1,9 @@
 import type { Citation } from "@/types/api";
+import {
+  logProcessFailed,
+  logProcessFinished,
+  logProcessStarted,
+} from "@/lib/processLogger";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api/v1";
 
@@ -24,24 +29,39 @@ export interface StreamHandlers {
 }
 
 export async function streamChat(payload: StreamChatPayload, handlers: StreamHandlers) {
-  const response = await fetch(`${apiBaseUrl}/chat`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${handlers.accessToken}`,
-    },
-    body: JSON.stringify({ ...payload, stream: true }),
-    signal: handlers.signal,
+  logProcessStarted("Send user question", {
+    selectedDocuments: payload.document_ids.length,
+    conversationId: payload.conversation_id ?? null,
   });
+  let response: Response;
+  try {
+    response = await fetch(`${apiBaseUrl}/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${handlers.accessToken}`,
+      },
+      body: JSON.stringify({ ...payload, stream: true }),
+      signal: handlers.signal,
+    });
+  } catch (error) {
+    logProcessFailed("Send user question", {
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+    throw error;
+  }
 
   if (!response.ok || !response.body) {
+    logProcessFailed("Send user question", { httpStatus: response.status });
     handlers.onError?.("Streaming request failed.");
     return;
   }
+  logProcessFinished("Send user question", { status: response.status });
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let displayStarted = false;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -57,14 +77,27 @@ export async function streamChat(payload: StreamChatPayload, handlers: StreamHan
         continue;
       }
       if (event.type === "metadata") {
-        handlers.onMetadata?.(JSON.parse(event.data) as StreamMetadata);
+        const metadata = JSON.parse(event.data) as StreamMetadata;
+        logProcessFinished("Attach citations", {
+          conversationId: metadata.conversation_id,
+          citations: metadata.citations.length,
+        });
+        handlers.onMetadata?.(metadata);
       } else if (event.type === "token") {
         const payloadData = JSON.parse(event.data) as { content: string };
+        if (!displayStarted) {
+          displayStarted = true;
+          logProcessStarted("Display answer");
+        }
         handlers.onToken(payloadData.content);
       } else if (event.type === "done") {
+        logProcessFinished("Display answer");
         handlers.onDone?.();
       } else if (event.type === "error") {
         const payloadData = JSON.parse(event.data) as { message?: string };
+        logProcessFailed("Display answer", {
+          error: payloadData.message ?? "Streaming failed.",
+        });
         handlers.onError?.(payloadData.message ?? "Streaming failed.");
       }
     }
@@ -83,4 +116,3 @@ function parseServerSentEvent(rawEvent: string): { type: string; data: string } 
     data: dataLine.replace("data:", "").trim(),
   };
 }
-

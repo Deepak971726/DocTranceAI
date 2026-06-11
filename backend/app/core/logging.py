@@ -67,3 +67,48 @@ def configure_logging(level: str = "INFO", json_logs: bool = False) -> None:
 def get_logger(name: str) -> structlog.stdlib.BoundLogger:
     """Return a named structured logger."""
     return structlog.get_logger(name)
+
+
+def log_process_started(
+    logger: structlog.stdlib.BoundLogger,
+    process: str,
+    **context: Any,
+) -> None:
+    """Emit a consistent, human-readable process start event."""
+    logger.info(
+        "process_started",
+        process=process,
+        status="started",
+        message=f"{process} process started.",
+        **context,
+    )
+
+
+def log_process_finished(
+    logger: structlog.stdlib.BoundLogger,
+    process: str,
+    **context: Any,
+) -> None:
+    """Emit a consistent, human-readable successful completion event."""
+    logger.info(
+        "process_finished_successfully",
+        process=process,
+        status="success",
+        message=f"{process} process finished successfully.",
+        **context,
+    )
+
+
+def log_process_failed(
+    logger: structlog.stdlib.BoundLogger,
+    process: str,
+    **context: Any,
+) -> None:
+    """Emit a consistent failure event with the active exception traceback."""
+    logger.exception(
+        "process_failed",
+        process=process,
+        status="failed",
+        message=f"{process} process failed.",
+        **context,
+    )

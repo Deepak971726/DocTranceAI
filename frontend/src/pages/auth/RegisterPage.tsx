@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Mail, UserRound } from "lucide-react";
+import { ArrowRight, Mail, Sparkles, UserRound } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -10,12 +10,19 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
+import { passwordSchema } from "@/lib/passwordValidation";
 
-const schema = z.object({
-  full_name: z.string().min(2, "Enter your name"),
-  email: z.string().email("Enter a valid email"),
-  password: z.string().min(12, "At least 12 characters"),
-});
+const schema = z
+  .object({
+    full_name: z.string().min(2, "Enter your name"),
+    email: z.string().email("Enter a valid email"),
+    password: passwordSchema,
+    confirm_password: z.string().min(1, "Confirm your password"),
+  })
+  .refine((values) => values.password === values.confirm_password, {
+    message: "Passwords do not match",
+    path: ["confirm_password"],
+  });
 type RegisterForm = z.infer<typeof schema>;
 
 export default function RegisterPage() {
@@ -29,22 +36,35 @@ export default function RegisterPage() {
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       className="w-full max-w-md"
     >
-      <Card className="glass-panel overflow-hidden">
+      <Card className="auth-card glass-panel overflow-hidden">
         <CardContent className="space-y-6 p-6 sm:p-8">
           <div className="space-y-2 text-center">
             <motion.div
-              className="mx-auto mb-4 h-1.5 w-24 rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500"
-              animate={{ opacity: [0.55, 1, 0.55], scaleX: [0.82, 1, 0.82] }}
-              transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
-            />
+              className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-600 text-white shadow-glow"
+              animate={{ y: [0, -4, 0], rotate: [0, -2, 0] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <Sparkles className="h-6 w-6" aria-hidden="true" />
+            </motion.div>
             <p className="text-xs font-bold uppercase tracking-[0.3em] text-primary">Create workspace</p>
             <h1 className="font-display text-3xl font-semibold tracking-tight">Start with a free account</h1>
-            <p className="text-sm text-muted-foreground">Use local AI document tools without an OpenAI key.</p>
+            <p className="mx-auto max-w-sm text-sm leading-6 text-muted-foreground">
+              Upload, search, summarize, and chat with your documents using local AI.
+            </p>
           </div>
 
           <AuthModeSwitch active="register" />
 
-          <form className="space-y-4" onSubmit={form.handleSubmit((values) => register.mutate(values))}>
+          <form
+            className="space-y-4"
+            onSubmit={form.handleSubmit((values) =>
+              register.mutate({
+                full_name: values.full_name,
+                email: values.email,
+                password: values.password,
+              }),
+            )}
+          >
             <div className="space-y-1.5">
               <Label htmlFor="full_name">Full name</Label>
               <div className="relative">
@@ -87,15 +107,37 @@ export default function RegisterPage() {
               <PasswordField
                 id="password"
                 autoComplete="new-password"
-                placeholder="Min 12 chars, upper + number + symbol"
+                placeholder="Minimum 6 characters"
                 error={form.formState.errors.password?.message}
                 {...form.register("password")}
               />
-              <p className="text-xs text-muted-foreground">e.g. TestPass@123 — needs uppercase, number &amp; symbol</p>
+              <p className="text-xs leading-5 text-muted-foreground">
+                Use 6+ characters and at least three: lowercase, uppercase, number, symbol.
+              </p>
             </div>
 
-            <Button type="submit" variant="premium" size="lg" className="w-full" disabled={register.isPending}>
+            <div className="space-y-1.5">
+              <Label htmlFor="confirm_password">Confirm password</Label>
+              <PasswordField
+                id="confirm_password"
+                autoComplete="new-password"
+                placeholder="Enter the same password again"
+                error={form.formState.errors.confirm_password?.message}
+                {...form.register("confirm_password")}
+              />
+            </div>
+
+            <Button
+              type="submit"
+              variant="premium"
+              size="lg"
+              className="group w-full"
+              disabled={register.isPending}
+            >
               {register.isPending ? "Creating..." : "Create account"}
+              {!register.isPending && (
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              )}
             </Button>
           </form>
         </CardContent>

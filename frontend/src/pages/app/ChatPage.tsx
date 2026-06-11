@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
-import { MessageSquare, Plus, Send, Square } from "lucide-react";
+import { MessageSquare, Plus, SendHorizontal, Square } from "lucide-react";
 import { toast } from "sonner";
 import { CitationPanel } from "@/components/chat/CitationPanel";
 import { MessageBubble } from "@/components/chat/MessageBubble";
@@ -9,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useConversationMessages, useConversations } from "@/hooks/useChat";
 import { useDocuments } from "@/hooks/useDocuments";
 import { streamChat, type StreamMetadata } from "@/services/streamingChat";
+import { queryKeys } from "@/services/queryKeys";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   resetChatState,
@@ -22,6 +24,7 @@ import type { ChatMessage, Citation } from "@/types/api";
 
 export default function ChatPage() {
   const [params] = useSearchParams();
+  const queryClient = useQueryClient();
   const dispatch = useAppDispatch();
   const chat = useAppSelector((s) => s.chat);
   const token = useAppSelector((s) => s.auth.accessToken);
@@ -48,9 +51,12 @@ export default function ChatPage() {
     [documents.data?.items],
   );
 
+  const persistedMessages = (messages.data?.items ?? []).filter(
+    (message) => message.id !== streamMetadata?.message_id,
+  );
   const displayed: ChatMessage[] = [
-    ...(messages.data?.items ?? []),
-    ...(streamedContent
+    ...persistedMessages,
+    ...(streamMetadata
       ? [{
           id: streamMetadata?.message_id ?? "streaming",
           conversation_id: streamMetadata?.conversation_id ?? chat.activeConversationId ?? "",
@@ -65,16 +71,18 @@ export default function ChatPage() {
   ];
 
   const submit = async () => {
-    if (!token || !chat.draft.trim() || chat.selectedDocumentIds.length === 0 || chat.isStreaming) return;
+    const question = chat.draft.trim();
+    if (!token || !question || chat.selectedDocumentIds.length === 0 || chat.isStreaming) return;
     abortRef.current = new AbortController();
     let convId = chat.activeConversationId;
     setStreamedContent("");
     setCitations([]);
     setStreamMetadata(null);
+    dispatch(setDraft(""));
     dispatch(setStreaming(true));
     try {
       await streamChat(
-        { question: chat.draft, document_ids: chat.selectedDocumentIds, conversation_id: chat.activeConversationId },
+        { question, document_ids: chat.selectedDocumentIds, conversation_id: chat.activeConversationId },
         {
           accessToken: token,
           signal: abortRef.current.signal,
@@ -83,17 +91,37 @@ export default function ChatPage() {
             convId = meta.conversation_id;
             setCitations(meta.citations);
             dispatch(setActiveConversationId(meta.conversation_id));
+            void conversations.refetch();
           },
           onToken: (t) => setStreamedContent((v) => v + t),
           onDone: () => {
             dispatch(resetChatState());
-            void conversations.refetch();
-            if (convId) void messages.refetch();
-            setStreamedContent("");
+            const refreshes: Array<Promise<unknown>> = [conversations.refetch()];
+            if (convId) {
+              refreshes.push(
+                queryClient.invalidateQueries({ queryKey: queryKeys.messages(convId) }),
+              );
+            }
+            void Promise.all(refreshes).finally(() => {
+              setStreamedContent("");
+              setStreamMetadata(null);
+            });
           },
-          onError: (msg) => toast.error(msg),
+          onError: (msg) => {
+            toast.error(msg);
+            dispatch(setDraft(question));
+            setStreamedContent("");
+            setStreamMetadata(null);
+          },
         },
       );
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === "AbortError")) {
+        toast.error(error instanceof Error ? error.message : "Chat request failed.");
+        dispatch(setDraft(question));
+        setStreamedContent("");
+        setStreamMetadata(null);
+      }
     } finally {
       dispatch(setStreaming(false));
     }
@@ -110,6 +138,7 @@ export default function ChatPage() {
             size="icon"
             className="h-6 w-6"
             onClick={() => { dispatch(setActiveConversationId(null)); dispatch(setDraft("")); setStreamedContent(""); }}
+            aria-label="New conversation"
           >
             <Plus className="h-3 w-3" />
           </Button>
@@ -155,6 +184,7 @@ export default function ChatPage() {
                   "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                   selected ? "border-primary bg-primary/10 text-primary" : "hover:bg-secondary",
                 )}
+                aria-pressed={selected}
               >
                 {doc.original_filename}
               </button>
@@ -179,27 +209,37 @@ export default function ChatPage() {
         </div>
 
         {/* Input */}
-        <div className="border-t p-3">
-          <div className="flex gap-2">
+        <div className="border-t bg-background/40 p-3">
+          <div className="flex items-end gap-2 rounded-2xl border bg-background p-2 shadow-sm focus-within:ring-2 focus-within:ring-ring">
             <Textarea
               value={chat.draft}
               onChange={(e) => dispatch(setDraft(e.target.value))}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submit(); } }}
               placeholder="Ask a question... (Enter to send, Shift+Enter for new line)"
-              className="min-h-0 resize-none"
+              className="min-h-12 flex-1 resize-none border-0 bg-transparent px-3 py-3 shadow-none focus-visible:ring-0 focus-visible:shadow-none"
               rows={2}
             />
             {chat.isStreaming ? (
-              <Button variant="destructive" size="icon" onClick={() => abortRef.current?.abort()}>
+              <Button
+                variant="destructive"
+                size="md"
+                className="h-11 shrink-0 px-4"
+                onClick={() => abortRef.current?.abort()}
+                aria-label="Stop generating"
+              >
                 <Square className="h-4 w-4" />
+                Stop
               </Button>
             ) : (
               <Button
-                size="icon"
+                size="md"
+                className="h-11 shrink-0 rounded-xl px-5"
                 onClick={submit}
                 disabled={!chat.draft.trim() || chat.selectedDocumentIds.length === 0}
+                aria-label="Send message"
               >
-                <Send className="h-4 w-4" />
+                Send
+                <SendHorizontal className="h-4 w-4" />
               </Button>
             )}
           </div>

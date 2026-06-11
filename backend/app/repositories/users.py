@@ -86,7 +86,6 @@ class UserRepository:
                 plan_name=PlanName.FREE,
                 status=SubscriptionStatus.ACTIVE,
                 usage_limits={
-                    "documents": 5,
                     "storage_bytes": 104857600,
                     "questions_per_month": 100,
                 },

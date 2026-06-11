@@ -1,70 +1,72 @@
-import { useId } from "react";
-import { motion } from "framer-motion";
-import { Monitor, Moon, Sun } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { setThemeMode } from "@/store/slices/themeSlice";
-import type { ThemeMode } from "@/types/api";
 
 interface ThemeToggleProps {
   compact?: boolean;
   className?: string;
 }
 
-const themeOptions: Array<{
-  mode: ThemeMode;
-  label: string;
-  icon: typeof Sun;
-}> = [
-  { mode: "light", label: "Light", icon: Sun },
-  { mode: "dark", label: "Dark", icon: Moon },
-  { mode: "system", label: "System", icon: Monitor },
-];
-
 export function ThemeToggle({ compact = false, className }: ThemeToggleProps) {
-  const id = useId();
   const dispatch = useAppDispatch();
   const mode = useAppSelector((state) => state.theme.mode);
+  const [systemDark, setSystemDark] = useState(false);
+  const isDark = mode === "dark" || (mode === "system" && systemDark);
+  const nextMode = isDark ? "light" : "dark";
+  const label = `Switch to ${nextMode} theme`;
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const updateSystemTheme = () => setSystemDark(media.matches);
+    updateSystemTheme();
+    media.addEventListener("change", updateSystemTheme);
+    return () => media.removeEventListener("change", updateSystemTheme);
+  }, []);
 
   return (
-    <div
-      role="radiogroup"
-      aria-label="Theme"
+    <motion.button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={() => dispatch(setThemeMode(nextMode))}
+      whileHover={{ scale: 1.04 }}
+      whileTap={{ scale: 0.94 }}
       className={cn(
-        "inline-flex items-center rounded-full border bg-card/80 p-1 shadow-sm backdrop-blur-xl",
+        "group relative inline-flex h-10 items-center justify-center gap-2 overflow-hidden rounded-full border bg-card/85 px-3 text-sm font-semibold text-foreground shadow-sm backdrop-blur-xl transition-colors hover:border-primary/35 hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        compact && "w-10 px-0",
         className,
       )}
     >
-      {themeOptions.map(({ mode: optionMode, label, icon: Icon }) => {
-        const active = mode === optionMode;
-
-        return (
-          <button
-            key={optionMode}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            aria-label={`Use ${label.toLowerCase()} theme`}
-            title={label}
-            onClick={() => dispatch(setThemeMode(optionMode))}
-            className={cn(
-              "relative isolate inline-flex h-8 items-center justify-center gap-1.5 rounded-full px-3 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              compact && "w-8 px-0",
-              active && "text-foreground",
-            )}
-          >
-            {active && (
-              <motion.span
-                layoutId={`theme-toggle-${id}`}
-                className="absolute inset-0 -z-10 rounded-full bg-background shadow-sm"
-                transition={{ type: "spring", stiffness: 420, damping: 32 }}
-              />
-            )}
-            <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-            {!compact && <span>{label}</span>}
-          </button>
-        );
-      })}
-    </div>
+      <span className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-violet-500/10 opacity-0 transition-opacity group-hover:opacity-100" />
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={isDark ? "moon" : "sun"}
+          initial={{ opacity: 0, rotate: -70, scale: 0.65 }}
+          animate={{ opacity: 1, rotate: 0, scale: 1 }}
+          exit={{ opacity: 0, rotate: 70, scale: 0.65 }}
+          transition={{ duration: 0.2 }}
+          className="relative z-10"
+        >
+          {isDark ? (
+            <Moon className="h-4 w-4 text-indigo-300" aria-hidden="true" />
+          ) : (
+            <Sun className="h-4 w-4 text-amber-500" aria-hidden="true" />
+          )}
+        </motion.span>
+      </AnimatePresence>
+      {!compact && (
+        <motion.span
+          key={isDark ? "dark-label" : "light-label"}
+          initial={{ opacity: 0, x: -4 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="relative z-10"
+        >
+          {isDark ? "Dark" : "Light"}
+        </motion.span>
+      )}
+    </motion.button>
   );
 }

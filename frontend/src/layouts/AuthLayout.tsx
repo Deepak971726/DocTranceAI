@@ -15,12 +15,12 @@ export function AuthLayout() {
     <main className="relative min-h-screen overflow-hidden bg-background">
       <div className="premium-grid pointer-events-none absolute inset-0 opacity-40" />
       <motion.div
-        className="pointer-events-none absolute -left-24 top-16 h-80 w-80 rounded-full bg-primary/20 blur-3xl"
+        className="pointer-events-none absolute -left-24 top-16 h-80 w-80 will-change-transform rounded-full bg-primary/20 blur-3xl"
         animate={{ x: [0, 36, 0], y: [0, 22, 0], scale: [1, 1.08, 1] }}
         transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
-        className="pointer-events-none absolute -right-24 bottom-10 h-96 w-96 rounded-full bg-violet-500/20 blur-3xl"
+        className="pointer-events-none absolute -right-24 bottom-10 h-96 w-96 will-change-transform rounded-full bg-violet-500/20 blur-3xl"
         animate={{ x: [0, -28, 0], y: [0, -24, 0], scale: [1, 1.1, 1] }}
         transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
       />
@@ -36,10 +36,10 @@ export function AuthLayout() {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-            className="glass-panel rounded-[2rem] p-8"
+            className="glass-panel auth-showcase rounded-[2rem] p-8"
           >
             <p className="text-xs font-bold uppercase tracking-[0.35em] text-primary">DocTraceAI</p>
-            <h1 className="mt-5 font-display text-5xl font-semibold tracking-tight">
+            <h1 className="mt-5 bg-gradient-to-br from-foreground via-foreground to-primary bg-clip-text font-display text-5xl font-semibold tracking-tight text-transparent">
               A cleaner way to trust your documents.
             </h1>
             <p className="mt-5 max-w-xl text-sm leading-6 text-muted-foreground">
@@ -53,10 +53,11 @@ export function AuthLayout() {
                   key={label}
                   initial={{ opacity: 0, x: -18 }}
                   animate={{ opacity: 1, x: 0 }}
+                  whileHover={{ x: 6, scale: 1.01 }}
                   transition={{ delay: 0.15 + index * 0.08, duration: 0.45 }}
-                  className="flex items-start gap-4 rounded-3xl border bg-background/70 p-4"
+                  className="group flex items-start gap-4 rounded-3xl border bg-background/70 p-4 shadow-sm transition-colors hover:border-primary/25 hover:bg-background/90"
                 >
-                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary transition-transform duration-300 group-hover:rotate-3 group-hover:scale-105">
                     <Icon className="h-5 w-5" />
                   </span>
                   <span>
@@ -65,6 +66,12 @@ export function AuthLayout() {
                   </span>
                 </motion.div>
               ))}
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center gap-2 text-xs font-semibold text-muted-foreground">
+              <span className="rounded-full border bg-background/65 px-3 py-1.5">Local Ollama</span>
+              <span className="rounded-full border bg-background/65 px-3 py-1.5">Source citations</span>
+              <span className="rounded-full border bg-background/65 px-3 py-1.5">Private storage</span>
             </div>
           </motion.div>
         </section>

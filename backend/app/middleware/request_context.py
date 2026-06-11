@@ -10,7 +10,13 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 from starlette.responses import Response
 
-from app.core.logging import get_logger, request_id_context, user_id_context
+from app.core.logging import (
+    get_logger,
+    log_process_finished,
+    log_process_started,
+    request_id_context,
+    user_id_context,
+)
 
 logger = get_logger(__name__)
 REQUEST_COUNT = Counter(
@@ -35,6 +41,13 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         user_token = user_id_context.set(None)
         started = time.perf_counter()
         status = 500
+        log_process_started(
+            logger,
+            "HTTP request",
+            method=request.method,
+            path=request.url.path,
+            request_id=request_id,
+        )
         try:
             response = await call_next(request)
             status = response.status_code
@@ -44,15 +57,24 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
             path_template = getattr(route, "path", request.url.path)
             REQUEST_COUNT.labels(request.method, path_template, str(status)).inc()
             REQUEST_DURATION.labels(request.method, path_template).observe(duration)
-            logger.info(
-                "http_request_completed",
-                method=request.method,
-                path=request.url.path,
-                status=status,
-                duration_ms=round(duration * 1000, 2),
-                request_id=request_id,
-                client_ip=request.client.host if request.client else None,
-            )
+            context = {
+                "method": request.method,
+                "path": request.url.path,
+                "http_status": status,
+                "duration_ms": round(duration * 1000, 2),
+                "request_id": request_id,
+                "client_ip": request.client.host if request.client else None,
+            }
+            if status >= 500:
+                logger.error(
+                    "process_failed",
+                    process="HTTP request",
+                    status="failed",
+                    message="HTTP request process failed.",
+                    **context,
+                )
+            else:
+                log_process_finished(logger, "HTTP request", **context)
             request_id_context.reset(request_token)
             user_id_context.reset(user_token)
         response.headers["X-Request-ID"] = request_id

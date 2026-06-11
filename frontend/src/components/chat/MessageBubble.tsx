@@ -12,6 +12,7 @@ interface MessageBubbleProps {
 
 export function MessageBubble({ message, onRegenerate }: MessageBubbleProps) {
   const isAssistant = message.role === "ASSISTANT";
+  const isComplete = message.status === "COMPLETED" && Boolean(message.content.trim());
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(message.content);
@@ -29,7 +30,7 @@ export function MessageBubble({ message, onRegenerate }: MessageBubbleProps) {
         <div className="prose prose-sm max-w-none dark:prose-invert">
           <MarkdownMessage content={message.content || "Thinking..."} />
         </div>
-        {isAssistant && (
+        {isAssistant && isComplete && (
           <div className="mt-3 flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={handleCopy}>
               <Copy className="h-4 w-4" />
@@ -47,4 +48,3 @@ export function MessageBubble({ message, onRegenerate }: MessageBubbleProps) {
     </article>
   );
 }
-

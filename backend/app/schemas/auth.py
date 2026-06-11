@@ -14,7 +14,7 @@ class RegisterRequest(BaseModel):
     """New user registration payload."""
 
     email: EmailStr
-    password: str = Field(min_length=12, max_length=128)
+    password: str = Field(min_length=6, max_length=128)
     full_name: str | None = Field(default=None, min_length=1, max_length=200)
 
     @field_validator("password")
@@ -65,7 +65,7 @@ class ResetPasswordRequest(BaseModel):
     """Single-use password-reset payload."""
 
     token: str = Field(min_length=32)
-    password: str = Field(min_length=12, max_length=128)
+    password: str = Field(min_length=6, max_length=128)
 
     @field_validator("password")
     @classmethod

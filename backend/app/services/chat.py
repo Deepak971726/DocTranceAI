@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from collections.abc import AsyncIterator
@@ -11,7 +12,13 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.constants.prompts import RAG_SYSTEM_PROMPT, RAG_USER_PROMPT
-from app.core.logging import get_logger, request_id_context
+from app.core.logging import (
+    get_logger,
+    log_process_failed,
+    log_process_finished,
+    log_process_started,
+    request_id_context,
+)
 from app.db.tenancy import set_tenant_context
 from app.exceptions import NotFoundError, ValidationError
 from app.models.enums import MessageRole, MessageStatus
@@ -62,12 +69,37 @@ class ChatService:
         conversation_id: UUID | None,
     ) -> PreparedChat:
         """Validate tenant documents and persist user/pending assistant messages."""
+        log_process_started(
+            logger,
+            "Receive user question",
+            user_id=str(user_id),
+            selected_documents=len(document_ids),
+            conversation_id=str(conversation_id) if conversation_id else None,
+        )
         unique_document_ids = list(dict.fromkeys(document_ids))
+        log_process_started(
+            logger,
+            "Validate selected documents",
+            user_id=str(user_id),
+            selected_documents=len(unique_document_ids),
+        )
         documents = await self.documents.get_many_ready(user_id, unique_document_ids)
         if len(documents) != len(unique_document_ids):
             raise ValidationError(
                 "Every selected document must exist, belong to you, and be READY."
             )
+        log_process_finished(
+            logger,
+            "Validate selected documents",
+            user_id=str(user_id),
+            selected_documents=len(unique_document_ids),
+        )
+        log_process_started(
+            logger,
+            "Create or update conversation",
+            user_id=str(user_id),
+            existing=conversation_id is not None,
+        )
         if conversation_id is None:
             conversation = await self.conversations.create(
                 user_id,
@@ -81,6 +113,18 @@ class ChatService:
             await self.conversations.replace_documents(
                 user_id, conversation.id, unique_document_ids
             )
+        log_process_finished(
+            logger,
+            "Create or update conversation",
+            user_id=str(user_id),
+            conversation_id=str(conversation.id),
+        )
+        log_process_started(
+            logger,
+            "Store user question",
+            user_id=str(user_id),
+            conversation_id=str(conversation.id),
+        )
         await self.conversations.add_message(
             user_id=user_id,
             conversation_id=conversation.id,
@@ -95,10 +139,24 @@ class ChatService:
             status=MessageStatus.PENDING,
         )
         await self.session.commit()
+        log_process_finished(
+            logger,
+            "Store user question",
+            user_id=str(user_id),
+            conversation_id=str(conversation.id),
+            assistant_message_id=str(assistant_message.id),
+        )
         retrieval = await self.rag.retrieve(
             user_id=user_id,
             query=question,
             document_ids=unique_document_ids,
+        )
+        log_process_finished(
+            logger,
+            "Receive user question",
+            user_id=str(user_id),
+            conversation_id=str(conversation.id),
+            citations=len(retrieval.citations),
         )
         return PreparedChat(
             user_id=user_id,
@@ -111,6 +169,12 @@ class ChatService:
     async def complete(self, prepared: PreparedChat) -> ChatResponse:
         """Generate and persist a complete non-streaming answer."""
         started = time.perf_counter()
+        log_process_started(
+            logger,
+            "Complete chat response",
+            conversation_id=str(prepared.conversation_id),
+            message_id=str(prepared.assistant_message_id),
+        )
         try:
             answer = await self.rag.answer(question=prepared.question, retrieval=prepared.retrieval)
             message = await self.conversations.get_message(
@@ -120,7 +184,25 @@ class ChatService:
             )
             if message is None:
                 raise NotFoundError("Pending assistant message not found.")
+            log_process_started(
+                logger,
+                "Attach citations",
+                conversation_id=str(prepared.conversation_id),
+                citations=len(prepared.retrieval.citations),
+            )
             citations = [item.model_dump(mode="json") for item in prepared.retrieval.citations]
+            log_process_finished(
+                logger,
+                "Attach citations",
+                conversation_id=str(prepared.conversation_id),
+                citations=len(citations),
+            )
+            log_process_started(
+                logger,
+                "Store chat response",
+                conversation_id=str(prepared.conversation_id),
+                message_id=str(prepared.assistant_message_id),
+            )
             await self.conversations.complete_message(
                 message,
                 content=answer,
@@ -141,11 +223,25 @@ class ChatService:
                 },
             )
             await self.session.commit()
+            log_process_finished(
+                logger,
+                "Store chat response",
+                conversation_id=str(prepared.conversation_id),
+                message_id=str(prepared.assistant_message_id),
+            )
             logger.info(
                 "chat_answer_completed — LLM responded, message saved, usage incremented",
                 conversation_id=str(prepared.conversation_id),
                 message_id=str(prepared.assistant_message_id),
                 citations=len(prepared.retrieval.citations),
+                latency_ms=int((time.perf_counter() - started) * 1000),
+            )
+            log_process_finished(
+                logger,
+                "Complete chat response",
+                conversation_id=str(prepared.conversation_id),
+                message_id=str(prepared.assistant_message_id),
+                citations=len(citations),
                 latency_ms=int((time.perf_counter() - started) * 1000),
             )
             return ChatResponse(
@@ -155,6 +251,12 @@ class ChatService:
                 citations=prepared.retrieval.citations,
             )
         except Exception as exc:
+            log_process_failed(
+                logger,
+                "Complete chat response",
+                conversation_id=str(prepared.conversation_id),
+                message_id=str(prepared.assistant_message_id),
+            )
             await self.session.rollback()
             await set_tenant_context(self.session, prepared.user_id)
             conversations = ConversationRepository(self.session)
@@ -172,7 +274,25 @@ class ChatService:
         """Stream SSE events and finalize the assistant message in a fresh session."""
         started = time.perf_counter()
         fragments: list[str] = []
+        log_process_started(
+            logger,
+            "Attach citations",
+            conversation_id=str(prepared.conversation_id),
+            citations=len(prepared.retrieval.citations),
+        )
         citations = [item.model_dump(mode="json") for item in prepared.retrieval.citations]
+        log_process_finished(
+            logger,
+            "Attach citations",
+            conversation_id=str(prepared.conversation_id),
+            citations=len(citations),
+        )
+        log_process_started(
+            logger,
+            "Stream chat response",
+            conversation_id=str(prepared.conversation_id),
+            message_id=str(prepared.assistant_message_id),
+        )
         yield self._sse(
             "metadata",
             {
@@ -195,6 +315,12 @@ class ChatService:
                     fragments.append(fragment)
                     yield self._sse("token", {"content": fragment})
             answer = "".join(fragments).strip()
+            log_process_started(
+                logger,
+                "Store chat response",
+                conversation_id=str(prepared.conversation_id),
+                message_id=str(prepared.assistant_message_id),
+            )
             async with self.session_factory() as session:
                 await set_tenant_context(session, prepared.user_id)
                 conversations = ConversationRepository(session)
@@ -225,28 +351,63 @@ class ChatService:
                         },
                     )
                     await session.commit()
+            log_process_finished(
+                logger,
+                "Store chat response",
+                conversation_id=str(prepared.conversation_id),
+                message_id=str(prepared.assistant_message_id),
+                answer_chars=len(answer),
+            )
             yield self._sse("done", {"message_id": str(prepared.assistant_message_id)})
+            log_process_finished(
+                logger,
+                "Stream chat response",
+                conversation_id=str(prepared.conversation_id),
+                message_id=str(prepared.assistant_message_id),
+                answer_chars=len(answer),
+                latency_ms=int((time.perf_counter() - started) * 1000),
+            )
+        except asyncio.CancelledError:
+            log_process_failed(
+                logger,
+                "Stream chat response",
+                conversation_id=str(prepared.conversation_id),
+                message_id=str(prepared.assistant_message_id),
+                reason="cancelled",
+            )
+            await self._fail_stream_message(prepared, "CancelledError")
+            raise
         except Exception as exc:
+            log_process_failed(
+                logger,
+                "Stream chat response",
+                conversation_id=str(prepared.conversation_id),
+                message_id=str(prepared.assistant_message_id),
+            )
             logger.exception(
                 "streaming_chat_failed — SSE stream aborted, message marked failed",
                 message_id=str(prepared.assistant_message_id),
                 conversation_id=str(prepared.conversation_id),
             )
-            async with self.session_factory() as session:
-                await set_tenant_context(session, prepared.user_id)
-                conversations = ConversationRepository(session)
-                message = await conversations.get_message(
-                    prepared.user_id,
-                    prepared.conversation_id,
-                    prepared.assistant_message_id,
-                )
-                if message:
-                    await conversations.fail_message(message, type(exc).__name__)
-                    await session.commit()
+            await self._fail_stream_message(prepared, type(exc).__name__)
             yield self._sse(
                 "error",
                 {"code": "generation_failed", "message": "Answer generation failed."},
             )
+
+    async def _fail_stream_message(self, prepared: PreparedChat, error: str) -> None:
+        """Finalize an interrupted stream so conversations never remain pending forever."""
+        async with self.session_factory() as session:
+            await set_tenant_context(session, prepared.user_id)
+            conversations = ConversationRepository(session)
+            message = await conversations.get_message(
+                prepared.user_id,
+                prepared.conversation_id,
+                prepared.assistant_message_id,
+            )
+            if message:
+                await conversations.fail_message(message, error)
+                await session.commit()
 
     @staticmethod
     def _sse(event: str, payload: dict[str, object]) -> str:

@@ -9,7 +9,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.core.logging import get_logger, request_id_context
+from app.core.logging import (
+    get_logger,
+    log_process_finished,
+    log_process_started,
+    request_id_context,
+)
 from app.core.security import (
     create_access_token,
     create_opaque_token,
@@ -57,6 +62,7 @@ class AuthService:
         user_agent: str | None,
     ) -> User:
         """Create a tenant, default subscription, and immediately usable account."""
+        log_process_started(logger, "Register user", email=email)
         user_id = uuid4()
         await set_tenant_context(self.session, user_id)
         try:
@@ -85,6 +91,7 @@ class AuthService:
             user_id=str(user.id),
             email=user.email,
         )
+        log_process_finished(logger, "Register user", user_id=str(user.id))
         return user
 
     async def login(
@@ -96,6 +103,7 @@ class AuthService:
         user_agent: str | None,
     ) -> TokenResponse:
         """Authenticate credentials and issue a rotating token pair."""
+        log_process_started(logger, "User login", email=email)
         identity = await self.users.get_auth_identity(email)
         if identity is None or not verify_password(password, identity.password_hash):
             raise AuthenticationError("Invalid email or password.")
@@ -124,6 +132,7 @@ class AuthService:
             user_id=str(user.id),
             ip_address=ip_address,
         )
+        log_process_finished(logger, "User login", user_id=str(user.id))
         return response
 
     async def refresh(
@@ -134,6 +143,7 @@ class AuthService:
         user_agent: str | None,
     ) -> TokenResponse:
         """Rotate a refresh token and reject replayed tokens."""
+        log_process_started(logger, "Refresh authentication token")
         payload = decode_token(refresh_token, "refresh", self.settings)
         user_id = UUID(str(payload["sub"]))
         await set_tenant_context(self.session, user_id)
@@ -148,10 +158,12 @@ class AuthService:
             user=user, ip_address=ip_address, user_agent=user_agent
         )
         await self.session.commit()
+        log_process_finished(logger, "Refresh authentication token", user_id=str(user_id))
         return response
 
     async def logout(self, refresh_token: str) -> None:
         """Revoke the presented refresh token."""
+        log_process_started(logger, "User logout")
         try:
             payload = decode_token(refresh_token, "refresh", self.settings)
             await set_tenant_context(self.session, UUID(str(payload["sub"])))
@@ -160,6 +172,7 @@ class AuthService:
         except AuthenticationError:
             await self.session.rollback()
         logger.info("user_logged_out")
+        log_process_finished(logger, "User logout")
 
     async def request_password_reset(
         self,
@@ -169,9 +182,11 @@ class AuthService:
         user_agent: str | None,
     ) -> None:
         """Create a reset token without revealing whether the email exists."""
+        log_process_started(logger, "Request password reset")
         identity = await self.users.get_auth_identity(email)
         if identity is None or not identity.is_active:
             logger.info("password_reset_requested_unknown_email")
+            log_process_finished(logger, "Request password reset", account_found=False)
             return
         await set_tenant_context(self.session, identity.id)
         user = await self.users.get_by_id(identity.id)
@@ -192,9 +207,16 @@ class AuthService:
             subject="Reset your DocTraceAI password",
             body=f"Reset your password using this link:\n\n{reset_url}",
         )
+        log_process_finished(
+            logger,
+            "Request password reset",
+            user_id=str(user.id),
+            account_found=True,
+        )
 
     async def reset_password(self, *, raw_token: str, password: str) -> None:
         """Consume a reset token, change the password, and revoke all sessions."""
+        log_process_started(logger, "Reset password")
         user_id = self._user_id_from_opaque_token(raw_token)
         await set_tenant_context(self.session, user_id)
         token = await self.tokens.get_valid(hash_token(raw_token), AuthTokenType.PASSWORD_RESET)
@@ -218,6 +240,7 @@ class AuthService:
             "password_reset_completed",
             user_id=str(user_id),
         )
+        log_process_finished(logger, "Reset password", user_id=str(user_id))
 
     async def _issue_token_pair(
         self, *, user: User, ip_address: str | None, user_agent: str | None

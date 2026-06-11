@@ -9,7 +9,13 @@ from uuid import UUID, uuid4
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import Settings
-from app.core.logging import get_logger, request_id_context
+from app.core.logging import (
+    get_logger,
+    log_process_failed,
+    log_process_finished,
+    log_process_started,
+    request_id_context,
+)
 from app.db.tenancy import set_tenant_context
 from app.exceptions import NotFoundError, ValidationError
 from app.integrations.embeddings import EmbeddingService
@@ -46,17 +52,27 @@ class DocumentService:
 
     async def upload(self, user_id: UUID, upload: ValidatedUpload) -> Document:
         """Persist upload state, store bytes, and enqueue via PostgreSQL status."""
+        log_process_started(
+            logger,
+            "Upload document",
+            user_id=str(user_id),
+            filename=upload.safe_filename,
+            bytes=len(upload.content),
+        )
         subscription = await self.usage.get_subscription(user_id, for_update=True)
         usage_limits = subscription.usage_limits if subscription else {}
-        document_limit = int(usage_limits.get("documents", self.settings.max_documents_free))
-        if await self.documents.count_active(user_id) >= document_limit:
-            raise ValidationError("Your plan's document limit has been reached.")
         storage_limit = int(usage_limits.get("storage_bytes", 100 * 1024 * 1024))
         current_storage = await self.documents.total_storage_bytes(user_id)
         if current_storage + len(upload.content) > storage_limit:
             raise ValidationError("Your plan's storage limit has been reached.")
         document_id = uuid4()
         storage_path = f"{user_id}/{document_id}/{uuid4().hex}-{upload.safe_filename}"
+        log_process_started(
+            logger,
+            "Create document database record",
+            user_id=str(user_id),
+            document_id=str(document_id),
+        )
         document = await self.documents.create(
             id=document_id,
             user_id=user_id,
@@ -70,6 +86,12 @@ class DocumentService:
             status=DocumentStatus.UPLOADING,
         )
         await self.session.commit()
+        log_process_finished(
+            logger,
+            "Create document database record",
+            user_id=str(user_id),
+            document_id=str(document_id),
+        )
         try:
             await self.storage.upload(
                 bucket=document.storage_bucket,
@@ -81,6 +103,12 @@ class DocumentService:
             document = await self.documents.get(user_id, document_id, for_update=True)
             if document is None:
                 raise NotFoundError("Document record disappeared during upload.")
+            log_process_started(
+                logger,
+                "Mark document processing",
+                user_id=str(user_id),
+                document_id=str(document_id),
+            )
             await self.documents.mark_processing(document)
             await self.usage.increment(
                 user_id, documents_uploaded=1, storage_bytes=document.file_size
@@ -96,8 +124,23 @@ class DocumentService:
                     "bytes": document.file_size,
                 },
             )
+            # On-update SQL expressions expire their ORM attributes after flush. Reload them
+            # while the async session is active so response serialization cannot trigger I/O.
+            await self.session.refresh(document)
             await self.session.commit()
+            log_process_finished(
+                logger,
+                "Mark document processing",
+                user_id=str(user_id),
+                document_id=str(document_id),
+            )
         except Exception as exc:
+            log_process_failed(
+                logger,
+                "Upload document",
+                user_id=str(user_id),
+                document_id=str(document_id),
+            )
             await self.session.rollback()
             await set_tenant_context(self.session, user_id)
             failed = await self.documents.get(user_id, document_id, for_update=True)
@@ -112,10 +155,23 @@ class DocumentService:
             filename=document.filename,
             bytes=document.file_size,
         )
+        log_process_finished(
+            logger,
+            "Upload document",
+            user_id=str(user_id),
+            document_id=str(document.id),
+            filename=document.filename,
+        )
         return document
 
     async def delete(self, user_id: UUID, document_id: UUID) -> None:
         """Delete external data and then soft-delete tenant metadata."""
+        log_process_started(
+            logger,
+            "Delete document",
+            user_id=str(user_id),
+            document_id=str(document_id),
+        )
         document = await self.documents.get(user_id, document_id, for_update=True)
         if document is None:
             raise NotFoundError("Document not found.")
@@ -130,6 +186,12 @@ class DocumentService:
             request_id=request_id_context.get(),
         )
         await self.session.commit()
+        log_process_finished(
+            logger,
+            "Delete document",
+            user_id=str(user_id),
+            document_id=str(document_id),
+        )
         logger.info(
             "document_deleted — removed from storage, vectors purged, record soft-deleted",
             document_id=str(document_id),
@@ -186,6 +248,14 @@ class DocumentProcessor:
             filename=claimed["filename"],
             retry_count=claimed["retry_count"],
         )
+        log_process_started(
+            logger,
+            "Process document",
+            document_id=str(claimed["id"]),
+            user_id=str(claimed["user_id"]),
+            filename=claimed["filename"],
+            retry_count=claimed["retry_count"],
+        )
         try:
             content = await self.storage.download(
                 bucket=str(claimed["bucket"]), path=str(claimed["path"])
@@ -196,17 +266,54 @@ class DocumentProcessor:
                 bytes=len(content),
                 filename=claimed["filename"],
             )
+            log_process_started(
+                logger,
+                "Extract text",
+                document_id=str(claimed["id"]),
+                filename=claimed["filename"],
+            )
+            log_process_started(
+                logger,
+                "Extract metadata",
+                document_id=str(claimed["id"]),
+                filename=claimed["filename"],
+            )
             extraction = await asyncio.to_thread(
                 extract_document, str(claimed["filename"]), content
+            )
+            log_process_finished(
+                logger,
+                "Extract text",
+                document_id=str(claimed["id"]),
+                pages=extraction.page_count,
+                sections=len(extraction.sections),
+            )
+            log_process_finished(
+                logger,
+                "Extract metadata",
+                document_id=str(claimed["id"]),
+                metadata_fields=len(extraction.metadata),
             )
             logger.info(
                 "document_extracted — text pulled, splitting into chunks",
                 document_id=str(claimed["id"]),
                 pages=extraction.page_count,
             )
+            log_process_started(
+                logger,
+                "Chunk text",
+                document_id=str(claimed["id"]),
+                sections=len(extraction.sections),
+            )
             text_chunks = self.chunker.split(extraction.sections)
             if not text_chunks:
                 raise ValidationError("No chunks were produced from this document.")
+            log_process_finished(
+                logger,
+                "Chunk text",
+                document_id=str(claimed["id"]),
+                chunks=len(text_chunks),
+            )
             logger.info(
                 "document_chunked — generating embeddings via Ollama",
                 document_id=str(claimed["id"]),
@@ -221,6 +328,12 @@ class DocumentProcessor:
                 vector_count=len(vectors),
             )
             rows: list[Any]
+            log_process_started(
+                logger,
+                "Store document chunks",
+                document_id=str(claimed["id"]),
+                chunks=len(text_chunks),
+            )
             async with self.session_factory() as session:
                 await set_tenant_context(session, claimed["user_id"])
                 repository = DocumentRepository(session)
@@ -243,6 +356,12 @@ class DocumentProcessor:
                     ],
                 )
                 await session.commit()
+            log_process_finished(
+                logger,
+                "Store document chunks",
+                document_id=str(claimed["id"]),
+                chunks=len(rows),
+            )
             await self.vector_store.ensure_collection()
             await self.vector_store.delete_document(
                 user_id=claimed["user_id"], document_id=claimed["id"]
@@ -252,6 +371,12 @@ class DocumentProcessor:
                 vectors=vectors,
                 filename=str(claimed["filename"]),
                 created_at=claimed["created_at"],
+            )
+            log_process_started(
+                logger,
+                "Mark document ready",
+                document_id=str(claimed["id"]),
+                chunks=len(rows),
             )
             async with self.session_factory() as session:
                 await set_tenant_context(session, claimed["user_id"])
@@ -265,6 +390,13 @@ class DocumentProcessor:
                         metadata=extraction.metadata,
                     )
                     await session.commit()
+            log_process_finished(
+                logger,
+                "Mark document ready",
+                document_id=str(claimed["id"]),
+                pages=extraction.page_count,
+                chunks=len(rows),
+            )
             logger.info(
                 "document_processing_completed — document is READY and fully searchable",
                 document_id=str(claimed["id"]),
@@ -272,7 +404,22 @@ class DocumentProcessor:
                 chunks=len(rows),
                 pages=extraction.page_count,
             )
+            log_process_finished(
+                logger,
+                "Process document",
+                document_id=str(claimed["id"]),
+                user_id=str(claimed["user_id"]),
+                pages=extraction.page_count,
+                chunks=len(rows),
+            )
         except Exception as exc:
+            log_process_failed(
+                logger,
+                "Process document",
+                document_id=str(claimed["id"]),
+                user_id=str(claimed["user_id"]),
+                attempt=claimed["retry_count"],
+            )
             logger.exception(
                 "document_processing_failed — will retry or mark FAILED if max retries exceeded",
                 document_id=str(claimed["id"]),

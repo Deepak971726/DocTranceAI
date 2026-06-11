@@ -110,7 +110,7 @@ async def semantic_search(
         document_ids=payload.document_ids,
         top_k=payload.top_k,
     )
-    return [SearchResult.model_validate(item) for item in result.citations]
+    return [SearchResult.model_validate(item.model_dump()) for item in result.citations]
 
 
 @router.post("/{document_id}/summary", response_model=SummaryResponse)

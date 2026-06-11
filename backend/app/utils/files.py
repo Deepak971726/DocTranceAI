@@ -11,7 +11,15 @@ from pathlib import Path
 
 from fastapi import UploadFile
 
+from app.core.logging import (
+    get_logger,
+    log_process_failed,
+    log_process_finished,
+    log_process_started,
+)
 from app.exceptions import ValidationError
+
+logger = get_logger(__name__)
 
 ALLOWED_TYPES = {
     ".pdf": "application/pdf",
@@ -86,26 +94,39 @@ async def read_and_validate_upload(
 ) -> ValidatedUpload:
     """Read an upload in bounded chunks and validate its declared and actual type."""
     original = upload.filename or "document"
-    safe_name = sanitize_filename(original)
-    extension = Path(safe_name).suffix.lower()
-    expected_type = ALLOWED_TYPES.get(extension)
-    if expected_type is None:
-        raise ValidationError("Only PDF, DOCX, and TXT files are supported.")
-    accepted_declared_types = {expected_type, "application/octet-stream"}
-    if upload.content_type and upload.content_type not in accepted_declared_types:
-        raise ValidationError("The declared file type does not match its extension.")
-    buffer = bytearray()
-    while chunk := await upload.read(1024 * 1024):
-        buffer.extend(chunk)
-        if len(buffer) > max_bytes:
-            raise ValidationError(f"File exceeds the {max_bytes} byte upload limit.")
-    content = bytes(buffer)
-    validate_file_content(extension, content)
-    return ValidatedUpload(
-        original_filename=original[:255],
-        safe_filename=safe_name,
-        extension=extension,
+    log_process_started(logger, "Upload file validation", filename=original)
+    try:
+        safe_name = sanitize_filename(original)
+        extension = Path(safe_name).suffix.lower()
+        expected_type = ALLOWED_TYPES.get(extension)
+        if expected_type is None:
+            raise ValidationError("Only PDF, DOCX, and TXT files are supported.")
+        accepted_declared_types = {expected_type, "application/octet-stream"}
+        if upload.content_type and upload.content_type not in accepted_declared_types:
+            raise ValidationError("The declared file type does not match its extension.")
+        buffer = bytearray()
+        while chunk := await upload.read(1024 * 1024):
+            buffer.extend(chunk)
+            if len(buffer) > max_bytes:
+                raise ValidationError(f"File exceeds the {max_bytes} byte upload limit.")
+        content = bytes(buffer)
+        validate_file_content(extension, content)
+        validated = ValidatedUpload(
+            original_filename=original[:255],
+            safe_filename=safe_name,
+            extension=extension,
+            content_type=expected_type,
+            content=content,
+            checksum_sha256=hashlib.sha256(content).hexdigest(),
+        )
+    except Exception:
+        log_process_failed(logger, "Upload file validation", filename=original)
+        raise
+    log_process_finished(
+        logger,
+        "Upload file validation",
+        filename=safe_name,
+        bytes=len(content),
         content_type=expected_type,
-        content=content,
-        checksum_sha256=hashlib.sha256(content).hexdigest(),
     )
+    return validated

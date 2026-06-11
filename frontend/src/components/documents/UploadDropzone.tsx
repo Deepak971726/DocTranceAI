@@ -1,5 +1,6 @@
 import { useDropzone } from "react-dropzone";
 import { UploadCloud } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 
@@ -18,11 +19,16 @@ export function UploadDropzone({ onFile, isUploading, progress }: UploadDropzone
     },
     maxFiles: 1,
     noClick: true,
+    disabled: isUploading,
     onDrop: (acceptedFiles) => {
       const [file] = acceptedFiles;
       if (file) {
         onFile(file);
       }
+    },
+    onDropRejected: (rejections) => {
+      const message = rejections[0]?.errors[0]?.message;
+      toast.error(message ?? "Select one PDF, DOCX, or TXT file.");
     },
   });
 
@@ -50,6 +56,11 @@ export function UploadDropzone({ onFile, isUploading, progress }: UploadDropzone
         <div className="mx-auto mt-6 max-w-md">
           <div className="h-3 overflow-hidden rounded-full bg-muted">
             <div
+              role="progressbar"
+              aria-label="Document upload progress"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={progress}
               className="h-full rounded-full bg-primary transition-all"
               style={{ width: `${progress}%` }}
             />
@@ -60,4 +71,3 @@ export function UploadDropzone({ onFile, isUploading, progress }: UploadDropzone
     </div>
   );
 }
-

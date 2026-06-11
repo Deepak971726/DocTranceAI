@@ -7,7 +7,12 @@ from urllib.parse import quote
 import httpx
 
 from app.core.config import Settings
-from app.core.logging import get_logger
+from app.core.logging import (
+    get_logger,
+    log_process_failed,
+    log_process_finished,
+    log_process_started,
+)
 from app.exceptions import StorageError
 
 logger = get_logger(__name__)
@@ -39,18 +44,14 @@ class SupabaseStorage:
         content_type: str,
     ) -> None:
         """Upload a new object without upsert to avoid accidental overwrites."""
+        process = "Store file"
         headers = {
             **self._headers(),
             "Content-Type": content_type,
             "Cache-Control": "private, max-age=0, no-store",
             "x-upsert": "false",
         }
-        logger.info(
-            "storage_upload_started — pushing file bytes to Supabase bucket",
-            bucket=bucket,
-            path=path,
-            bytes=len(content),
-        )
+        log_process_started(logger, process, bucket=bucket, path=path, bytes=len(content))
         try:
             async with self._client or httpx.AsyncClient(timeout=60.0) as client:
                 response = await client.post(
@@ -58,54 +59,31 @@ class SupabaseStorage:
                 )
                 response.raise_for_status()
         except (httpx.HTTPError, RuntimeError) as exc:
-            logger.exception(
-                "storage_upload_failed — file bytes not persisted",
-                bucket=bucket,
-                path=path,
-            )
+            log_process_failed(logger, process, bucket=bucket, path=path)
             raise StorageError() from exc
-        logger.info(
-            "storage_upload_completed — file is now in Supabase Storage",
-            bucket=bucket,
-            path=path,
-        )
+        log_process_finished(logger, process, bucket=bucket, path=path, bytes=len(content))
 
     async def download(self, *, bucket: str, path: str) -> bytes:
         """Download one private object."""
-        logger.info(
-            "storage_download_started — fetching file from Supabase bucket",
-            bucket=bucket,
-            path=path,
-        )
+        process = "Download stored file"
+        log_process_started(logger, process, bucket=bucket, path=path)
         try:
             async with self._client or httpx.AsyncClient(timeout=120.0) as client:
                 response = await client.get(self._object_url(bucket, path), headers=self._headers())
                 response.raise_for_status()
                 content = response.content
         except (httpx.HTTPError, RuntimeError) as exc:
-            logger.exception(
-                "storage_download_failed — could not retrieve file bytes",
-                bucket=bucket,
-                path=path,
-            )
+            log_process_failed(logger, process, bucket=bucket, path=path)
             raise StorageError() from exc
-        logger.info(
-            "storage_download_completed",
-            bucket=bucket,
-            path=path,
-            bytes=len(content),
-        )
+        log_process_finished(logger, process, bucket=bucket, path=path, bytes=len(content))
         return content
 
     async def delete(self, *, bucket: str, path: str) -> None:
         """Delete one private object from a bucket."""
+        process = "Delete stored file"
         safe_bucket = quote(bucket, safe="")
         url = f"{self.settings.supabase_url.rstrip('/')}/storage/v1/object/{safe_bucket}"
-        logger.info(
-            "storage_delete_started — requesting removal from Supabase bucket",
-            bucket=bucket,
-            path=path,
-        )
+        log_process_started(logger, process, bucket=bucket, path=path)
         try:
             async with self._client or httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.request(
@@ -116,14 +94,6 @@ class SupabaseStorage:
                 )
                 response.raise_for_status()
         except (httpx.HTTPError, RuntimeError) as exc:
-            logger.exception(
-                "storage_delete_failed — file may still exist in bucket",
-                bucket=bucket,
-                path=path,
-            )
+            log_process_failed(logger, process, bucket=bucket, path=path)
             raise StorageError() from exc
-        logger.info(
-            "storage_delete_completed — file removed from Supabase bucket",
-            bucket=bucket,
-            path=path,
-        )
+        log_process_finished(logger, process, bucket=bucket, path=path)
