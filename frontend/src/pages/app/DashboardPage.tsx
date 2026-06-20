@@ -9,7 +9,7 @@ import { formatBytes, formatDate } from "@/utils/format";
 
 function MetricCard({ title, value, sub, icon: Icon }: { title: string; value: string; sub: string; icon: React.ElementType }) {
   return (
-    <div className="rounded-xl border bg-card p-5">
+    <div className="liquid-card rounded-2xl p-5">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">{title}</p>
         <Icon className="h-4 w-4 text-muted-foreground" />
@@ -55,7 +55,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <div className="min-w-0 rounded-xl border bg-card p-5">
+        <div className="liquid-card min-w-0 rounded-2xl p-5">
           <p className="mb-4 font-medium">Usage trend</p>
           <div className="h-64">
             <ResponsiveContainer
@@ -81,7 +81,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-xl border bg-card p-5">
+        <div className="liquid-card rounded-2xl p-5">
           <p className="mb-4 font-medium">Recent uploads</p>
           {items.length === 0 ? (
             <div className="flex h-48 flex-col items-center justify-center gap-2 text-center">
@@ -97,7 +97,7 @@ export default function DashboardPage() {
                 <Link
                   key={doc.id}
                   to={`/documents/${doc.id}`}
-                  className="flex items-center justify-between rounded-lg border bg-background p-3 hover:bg-secondary"
+                  className="liquid-row flex items-center justify-between rounded-xl border p-3"
                 >
                   <div>
                     <p className="text-sm font-medium">{doc.original_filename}</p>

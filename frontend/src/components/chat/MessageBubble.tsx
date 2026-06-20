@@ -24,7 +24,9 @@ export function MessageBubble({ message, onRegenerate }: MessageBubbleProps) {
       <div
         className={cn(
           "max-w-[90%] rounded-3xl border px-5 py-4 shadow-sm md:max-w-[78%]",
-          isAssistant ? "bg-card" : "bg-primary text-primary-foreground",
+          isAssistant
+            ? "liquid-row"
+            : "border-white/35 bg-[linear-gradient(135deg,hsl(var(--primary)),hsl(var(--liquid-aqua)))] text-primary-foreground shadow-primary/20",
         )}
       >
         <div className="prose prose-sm max-w-none dark:prose-invert">

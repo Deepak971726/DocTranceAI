@@ -13,7 +13,7 @@ interface DocumentTableProps {
 
 export function DocumentTable({ documents, onDelete, deletingId }: DocumentTableProps) {
   return (
-    <div className="overflow-hidden rounded-3xl border bg-card">
+    <div className="liquid-card overflow-hidden rounded-3xl">
       <div className="hidden grid-cols-[1.5fr_0.7fr_0.7fr_0.8fr_0.4fr] border-b px-5 py-3 text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground md:grid">
         <span>Name</span>
         <span>Status</span>
@@ -25,10 +25,10 @@ export function DocumentTable({ documents, onDelete, deletingId }: DocumentTable
         {documents.map((document) => (
           <article
             key={document.id}
-            className="grid gap-4 px-5 py-4 md:grid-cols-[1.5fr_0.7fr_0.7fr_0.8fr_0.4fr] md:items-center"
+            className="grid gap-4 px-5 py-4 transition-colors hover:bg-white/25 md:grid-cols-[1.5fr_0.7fr_0.7fr_0.8fr_0.4fr] md:items-center dark:hover:bg-white/10"
           >
             <Link to={`/documents/${document.id}`} className="flex items-center gap-3">
-              <span className="grid h-11 w-11 place-items-center rounded-2xl bg-primary/10 text-primary">
+              <span className="liquid-chip grid h-11 w-11 place-items-center rounded-2xl text-primary">
                 <FileText className="h-5 w-5" aria-hidden="true" />
               </span>
               <span>
@@ -63,4 +63,3 @@ export function DocumentTable({ documents, onDelete, deletingId }: DocumentTable
     </div>
   );
 }
-

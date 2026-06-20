@@ -6,43 +6,55 @@
   --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-display: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  --background: 0 0% 98%;
-  --foreground: 224 20% 12%;
+  --background: 204 45% 97%;
+  --foreground: 224 28% 11%;
   --card: 0 0% 100%;
   --card-foreground: 224 20% 12%;
-  --primary: 221 83% 53%;
+  --primary: 197 88% 42%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 220 14% 94%;
+  --secondary: 192 38% 92%;
   --secondary-foreground: 224 20% 12%;
-  --muted: 220 14% 94%;
-  --muted-foreground: 220 9% 46%;
-  --accent: 220 14% 94%;
+  --muted: 200 26% 92%;
+  --muted-foreground: 214 16% 43%;
+  --accent: 176 50% 90%;
   --accent-foreground: 224 20% 12%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
-  --border: 220 13% 90%;
-  --input: 220 13% 90%;
-  --ring: 221 83% 53%;
+  --border: 199 36% 84%;
+  --input: 199 36% 84%;
+  --ring: 190 86% 42%;
+  --glass-border: 0 0% 100%;
+  --glass-shadow: 202 60% 30%;
+  --liquid-aqua: 188 88% 45%;
+  --liquid-rose: 338 82% 60%;
+  --liquid-gold: 42 94% 58%;
+  --liquid-ink: 225 30% 12%;
 }
 
 .dark {
-  --background: 224 20% 8%;
-  --foreground: 220 14% 94%;
-  --card: 224 20% 11%;
+  --background: 220 31% 8%;
+  --foreground: 204 38% 95%;
+  --card: 220 26% 12%;
   --card-foreground: 220 14% 94%;
-  --primary: 217 91% 60%;
+  --primary: 188 84% 58%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 224 20% 16%;
+  --secondary: 216 22% 16%;
   --secondary-foreground: 220 14% 94%;
-  --muted: 224 20% 16%;
-  --muted-foreground: 220 9% 58%;
-  --accent: 224 20% 16%;
+  --muted: 218 21% 16%;
+  --muted-foreground: 209 17% 68%;
+  --accent: 190 32% 18%;
   --accent-foreground: 220 14% 94%;
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
-  --border: 224 20% 18%;
-  --input: 224 20% 18%;
-  --ring: 217 91% 60%;
+  --border: 215 24% 24%;
+  --input: 215 24% 24%;
+  --ring: 188 84% 58%;
+  --glass-border: 196 80% 92%;
+  --glass-shadow: 210 80% 2%;
+  --liquid-aqua: 188 90% 62%;
+  --liquid-rose: 338 84% 66%;
+  --liquid-gold: 42 94% 62%;
+  --liquid-ink: 220 31% 8%;
 }
 
 * {
@@ -66,8 +78,9 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   background:
-    radial-gradient(circle at top left, hsl(var(--primary) / 0.12), transparent 32rem),
-    radial-gradient(circle at bottom right, hsl(262 83% 58% / 0.1), transparent 30rem),
+    linear-gradient(135deg, hsl(var(--liquid-aqua) / 0.16), transparent 32%),
+    linear-gradient(215deg, transparent 36%, hsl(var(--liquid-rose) / 0.12), transparent 64%),
+    linear-gradient(315deg, hsl(var(--liquid-gold) / 0.13), transparent 30%),
     hsl(var(--background));
   color: hsl(var(--foreground));
   font-family: var(--font-sans);
@@ -92,16 +105,124 @@ body {
 
 .premium-grid {
   background-image:
-    linear-gradient(hsl(var(--border) / 0.42) 1px, transparent 1px),
-    linear-gradient(90deg, hsl(var(--border) / 0.42) 1px, transparent 1px);
-  background-size: 42px 42px;
+    linear-gradient(115deg, hsl(var(--glass-border) / 0.2) 0 1px, transparent 1px 72px),
+    linear-gradient(25deg, hsl(var(--primary) / 0.12) 0 1px, transparent 1px 64px);
+  background-size: 76px 76px;
+  mask-image: linear-gradient(to bottom, black, transparent 82%);
 }
 
 .glass-panel {
-  border: 1px solid hsl(var(--border) / 0.85);
-  background: hsl(var(--card) / 0.78);
-  box-shadow: 0 24px 80px rgb(15 23 42 / 0.12);
-  backdrop-filter: blur(22px);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid hsl(var(--glass-border) / 0.52);
+  background:
+    linear-gradient(135deg, hsl(var(--card) / 0.72), hsl(var(--card) / 0.38)),
+    linear-gradient(115deg, hsl(var(--liquid-aqua) / 0.12), transparent 46%, hsl(var(--liquid-rose) / 0.1));
+  box-shadow:
+    inset 0 1px 0 hsl(var(--glass-border) / 0.72),
+    inset 0 -22px 54px hsl(var(--primary) / 0.04),
+    0 24px 84px hsl(var(--glass-shadow) / 0.18);
+  backdrop-filter: blur(26px) saturate(155%);
+}
+
+.glass-panel::after {
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  background:
+    linear-gradient(120deg, hsl(var(--glass-border) / 0.24), transparent 34%),
+    linear-gradient(300deg, hsl(var(--glass-border) / 0.12), transparent 42%);
+  content: "";
+  pointer-events: none;
+}
+
+.glass-panel > *,
+.liquid-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.liquid-ambient {
+  background:
+    linear-gradient(120deg, hsl(var(--liquid-aqua) / 0.22), transparent 28%, hsl(var(--liquid-rose) / 0.1) 62%, transparent),
+    linear-gradient(250deg, transparent 14%, hsl(var(--liquid-gold) / 0.14), transparent 48%),
+    linear-gradient(180deg, hsl(var(--background) / 0), hsl(var(--background) / 0.82));
+  filter: saturate(1.25);
+}
+
+.liquid-ambient::before {
+  position: absolute;
+  inset: -20%;
+  background:
+    conic-gradient(from 120deg at 36% 34%, transparent, hsl(var(--liquid-aqua) / 0.18), transparent 32%),
+    conic-gradient(from 260deg at 78% 52%, transparent, hsl(var(--liquid-rose) / 0.14), transparent 36%);
+  content: "";
+  opacity: 0.78;
+  transform: rotate(-4deg);
+}
+
+.liquid-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid hsl(var(--glass-border) / 0.5);
+  background:
+    linear-gradient(150deg, hsl(var(--card) / 0.72), hsl(var(--card) / 0.46)),
+    linear-gradient(315deg, hsl(var(--liquid-aqua) / 0.08), transparent 45%, hsl(var(--liquid-gold) / 0.07));
+  box-shadow:
+    inset 0 1px 0 hsl(var(--glass-border) / 0.62),
+    0 18px 60px hsl(var(--glass-shadow) / 0.12);
+  backdrop-filter: blur(24px) saturate(145%);
+}
+
+.liquid-card::before {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, hsl(var(--glass-border) / 0.22), transparent 28%, transparent 70%, hsl(var(--primary) / 0.1));
+  content: "";
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.liquid-nav {
+  border-color: hsl(var(--glass-border) / 0.38);
+  background:
+    linear-gradient(135deg, hsl(var(--card) / 0.76), hsl(var(--card) / 0.48)),
+    linear-gradient(90deg, hsl(var(--liquid-aqua) / 0.08), hsl(var(--liquid-rose) / 0.06));
+  box-shadow:
+    inset 0 1px 0 hsl(var(--glass-border) / 0.52),
+    0 16px 48px hsl(var(--glass-shadow) / 0.12);
+  backdrop-filter: blur(24px) saturate(155%);
+}
+
+.liquid-control {
+  border: 1px solid hsl(var(--glass-border) / 0.48);
+  background:
+    linear-gradient(135deg, hsl(var(--card) / 0.62), hsl(var(--background) / 0.34)),
+    linear-gradient(115deg, hsl(var(--liquid-aqua) / 0.08), transparent 54%);
+  box-shadow:
+    inset 0 1px 0 hsl(var(--glass-border) / 0.56),
+    0 10px 28px hsl(var(--glass-shadow) / 0.08);
+  backdrop-filter: blur(18px) saturate(140%);
+}
+
+.liquid-chip {
+  border-color: hsl(var(--glass-border) / 0.46);
+  background:
+    linear-gradient(135deg, hsl(var(--card) / 0.58), hsl(var(--card) / 0.32)),
+    linear-gradient(90deg, hsl(var(--liquid-aqua) / 0.1), hsl(var(--liquid-rose) / 0.08));
+  box-shadow: inset 0 1px 0 hsl(var(--glass-border) / 0.56);
+  backdrop-filter: blur(16px) saturate(145%);
+}
+
+.liquid-row {
+  border-color: hsl(var(--glass-border) / 0.35);
+  background: linear-gradient(135deg, hsl(var(--card) / 0.46), hsl(var(--background) / 0.28));
+  backdrop-filter: blur(16px) saturate(140%);
+}
+
+.liquid-row:hover {
+  border-color: hsl(var(--primary) / 0.38);
+  background: linear-gradient(135deg, hsl(var(--card) / 0.68), hsl(var(--accent) / 0.46));
 }
 
 .auth-card {
@@ -121,8 +242,9 @@ body {
   background: linear-gradient(
     120deg,
     transparent 10%,
-    hsl(var(--primary) / 0.45) 45%,
-    hsl(262 83% 58% / 0.4) 55%,
+    hsl(var(--liquid-aqua) / 0.55) 38%,
+    hsl(var(--liquid-rose) / 0.42) 55%,
+    hsl(var(--liquid-gold) / 0.38) 68%,
     transparent 90%
   );
   background-size: 220% 100%;

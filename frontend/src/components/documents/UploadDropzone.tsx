@@ -36,12 +36,12 @@ export function UploadDropzone({ onFile, isUploading, progress }: UploadDropzone
     <div
       {...getRootProps()}
       className={cn(
-        "rounded-[2rem] border border-dashed bg-card p-8 text-center transition-colors",
-        isDragActive && "border-primary bg-primary/5",
+        "liquid-card rounded-[2rem] border border-dashed p-8 text-center transition-colors",
+        isDragActive && "border-primary text-primary",
       )}
     >
       <input {...getInputProps()} aria-label="Upload document" />
-      <div className="mx-auto grid h-20 w-20 place-items-center rounded-3xl bg-primary/10 text-primary">
+      <div className="liquid-chip mx-auto grid h-20 w-20 place-items-center rounded-3xl text-primary">
         <UploadCloud className="h-10 w-10" aria-hidden="true" />
       </div>
       <h2 className="mt-6 font-display text-2xl font-semibold">Drop your document here</h2>
@@ -54,7 +54,7 @@ export function UploadDropzone({ onFile, isUploading, progress }: UploadDropzone
       </Button>
       {isUploading && (
         <div className="mx-auto mt-6 max-w-md">
-          <div className="h-3 overflow-hidden rounded-full bg-muted">
+          <div className="liquid-control h-3 overflow-hidden rounded-full">
             <div
               role="progressbar"
               aria-label="Document upload progress"

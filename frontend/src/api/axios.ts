@@ -2,8 +2,9 @@ import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { store } from "../store";
 import { logout, setCredentials } from "../store/slices/authSlice";
 import type { ApiErrorResponse, TokenResponse } from "../types/api";
+import { resolveApiBaseUrl } from "./baseUrl";
 
-const baseURL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api/v1";
+const baseURL = resolveApiBaseUrl();
 
 export const api = axios.create({
   baseURL,

@@ -9,13 +9,13 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground shadow-sm shadow-primary/20 hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-md hover:shadow-primary/25",
+          "border border-white/35 bg-primary/90 text-primary-foreground shadow-sm shadow-primary/20 backdrop-blur-xl hover:-translate-y-0.5 hover:bg-primary hover:shadow-md hover:shadow-primary/25",
         premium:
-          "bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white shadow-glow hover:-translate-y-0.5 hover:brightness-110",
-        secondary: "bg-secondary text-secondary-foreground hover:-translate-y-0.5 hover:bg-secondary/80",
-        outline: "border border-input bg-background/80 shadow-sm backdrop-blur hover:-translate-y-0.5 hover:bg-secondary",
-        ghost: "hover:bg-secondary hover:text-foreground",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+          "border border-white/40 bg-[linear-gradient(120deg,hsl(var(--liquid-aqua)),hsl(var(--primary))_44%,hsl(var(--liquid-rose)))] text-white shadow-glow hover:-translate-y-0.5 hover:saturate-150",
+        secondary: "liquid-control text-secondary-foreground hover:-translate-y-0.5 hover:border-primary/35",
+        outline: "liquid-control text-foreground hover:-translate-y-0.5 hover:border-primary/35",
+        ghost: "hover:bg-white/30 hover:text-foreground dark:hover:bg-white/10",
+        destructive: "border border-white/30 bg-destructive text-destructive-foreground shadow-sm backdrop-blur-xl hover:bg-destructive/90",
       },
       size: {
         sm: "h-8 px-3 text-xs",

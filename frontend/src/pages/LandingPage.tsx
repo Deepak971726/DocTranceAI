@@ -18,19 +18,10 @@ const capabilities = ["Document Q&A", "Multi-document chat", "Executive summarie
 export default function LandingPage() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-background text-foreground">
+      <div className="liquid-ambient pointer-events-none absolute inset-0" />
       <div className="premium-grid pointer-events-none absolute inset-0 opacity-40" />
-      <motion.div
-        className="pointer-events-none absolute -left-24 top-28 h-96 w-96 rounded-full bg-primary/20 blur-3xl"
-        animate={{ x: [0, 36, 0], y: [0, 24, 0], scale: [1, 1.08, 1] }}
-        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="pointer-events-none absolute -right-24 top-96 h-96 w-96 rounded-full bg-violet-500/20 blur-3xl"
-        animate={{ x: [0, -32, 0], y: [0, -20, 0], scale: [1, 1.1, 1] }}
-        transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
-      />
 
-      <header className="sticky top-0 z-40 border-b bg-background/75 backdrop-blur-xl">
+      <header className="liquid-nav sticky top-0 z-40 border-b">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <BrandMark />
           <div className="flex items-center gap-2">
@@ -52,7 +43,7 @@ export default function LandingPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
           >
-            <span className="inline-flex rounded-full border bg-secondary/80 px-4 py-2 text-xs font-bold uppercase tracking-[0.24em] text-primary">
+            <span className="liquid-chip inline-flex rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-[0.24em] text-primary">
               AI document intelligence
             </span>
             <h1 className="mt-6 font-display text-5xl font-semibold tracking-tight sm:text-6xl">
@@ -80,7 +71,7 @@ export default function LandingPage() {
             transition={{ delay: 0.12, duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
             className="glass-panel rounded-[2rem] p-5"
           >
-            <div className="rounded-[1.5rem] border bg-background/75 p-5">
+            <div className="liquid-card rounded-[1.5rem] p-5">
               <div className="mb-5 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold">Document workspace</p>
@@ -97,7 +88,7 @@ export default function LandingPage() {
                     initial={{ opacity: 0, x: 18 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.3 + index * 0.08, duration: 0.42 }}
-                    className="flex items-center justify-between rounded-2xl border bg-card/80 p-4"
+                    className="liquid-row flex items-center justify-between rounded-2xl border p-4"
                   >
                     <span className="flex items-center gap-3 text-sm font-semibold">
                       <FileText className="h-4 w-4 text-primary" />
@@ -107,14 +98,14 @@ export default function LandingPage() {
                   </motion.div>
                 ))}
               </div>
-              <div className="mt-5 rounded-2xl bg-primary/10 p-4 text-sm leading-6 text-primary">
+              <div className="liquid-chip mt-5 rounded-2xl p-4 text-sm leading-6 text-primary">
                 "Summarize key risks and cite exact source chunks."
               </div>
             </div>
           </motion.div>
         </section>
 
-        <section className="border-y bg-card/45 py-16 backdrop-blur">
+        <section className="border-y border-white/25 bg-card/30 py-16 backdrop-blur-2xl">
           <div className="mx-auto max-w-6xl px-4">
             <div className="mb-10 text-center">
               <p className="text-xs font-bold uppercase tracking-[0.28em] text-primary">Workflow</p>
@@ -163,9 +154,9 @@ export default function LandingPage() {
               <h2 className="font-display text-2xl font-semibold">Built on free local AI</h2>
               <p className="mt-4 text-sm leading-6 text-muted-foreground">
                 Powered by local Ollama models, so you do not need an OpenAI API key. The backend
-                works with FastAPI, PostgreSQL, Qdrant vector search, and Supabase storage.
+                works with Node.js, PostgreSQL, Qdrant vector search, and Supabase storage.
               </p>
-              <blockquote className="mt-6 rounded-2xl border-l-4 border-primary bg-background/70 p-4 text-sm italic text-muted-foreground">
+              <blockquote className="liquid-row mt-6 rounded-2xl border-l-4 border-primary p-4 text-sm italic text-muted-foreground">
                 "DocTraceAI gives our team cited answers without forcing everyone to read long SOPs."
               </blockquote>
               <p className="mt-3 text-sm font-semibold">Maya Shah, Operations Lead</p>
@@ -173,7 +164,7 @@ export default function LandingPage() {
           </Card>
         </section>
 
-        <section className="border-t bg-card/45 py-16 text-center backdrop-blur">
+        <section className="border-t border-white/25 bg-card/30 py-16 text-center backdrop-blur-2xl">
           <div className="mx-auto max-w-xl px-4">
             <h2 className="font-display text-3xl font-semibold">Ready to get started?</h2>
             <p className="mt-3 text-muted-foreground">Free to use. No credit card required.</p>

@@ -35,7 +35,7 @@ export function ThemeToggle({ compact = false, className }: ThemeToggleProps) {
       whileHover={{ scale: 1.04 }}
       whileTap={{ scale: 0.94 }}
       className={cn(
-        "group relative inline-flex h-10 items-center justify-center gap-2 overflow-hidden rounded-full border bg-card/85 px-3 text-sm font-semibold text-foreground shadow-sm backdrop-blur-xl transition-colors hover:border-primary/35 hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "liquid-chip group relative inline-flex h-10 items-center justify-center gap-2 overflow-hidden rounded-full px-3 text-sm font-semibold text-foreground transition-colors hover:border-primary/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         compact && "w-10 px-0",
         className,
       )}

@@ -130,7 +130,7 @@ export default function ChatPage() {
   return (
     <div className="flex h-[calc(100vh-4rem)] gap-4 overflow-hidden">
       {/* Conversations sidebar */}
-      <div className="hidden w-56 shrink-0 flex-col gap-2 overflow-y-auto lg:flex">
+      <div className="liquid-card hidden w-56 shrink-0 flex-col gap-2 overflow-y-auto rounded-2xl p-3 lg:flex">
         <div className="flex items-center justify-between py-1">
           <p className="text-xs font-semibold uppercase text-muted-foreground">Conversations</p>
           <Button
@@ -152,8 +152,8 @@ export default function ChatPage() {
               type="button"
               onClick={() => dispatch(setActiveConversationId(c.id))}
               className={cn(
-                "rounded-lg px-3 py-2 text-left text-sm hover:bg-secondary",
-                chat.activeConversationId === c.id && "bg-secondary font-medium",
+                "rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-white/35 dark:hover:bg-white/10",
+                chat.activeConversationId === c.id && "liquid-chip font-medium",
               )}
             >
               {c.title}
@@ -163,7 +163,7 @@ export default function ChatPage() {
       </div>
 
       {/* Main chat */}
-      <div className="flex flex-1 flex-col overflow-hidden rounded-xl border bg-card">
+      <div className="liquid-card flex flex-1 flex-col overflow-hidden rounded-2xl">
         {/* Document selector */}
         <div className="flex flex-wrap gap-2 border-b p-3">
           <p className="w-full text-xs font-medium text-muted-foreground">Select documents to chat with:</p>
@@ -181,8 +181,8 @@ export default function ChatPage() {
                   ))
                 }
                 className={cn(
-                  "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                  selected ? "border-primary bg-primary/10 text-primary" : "hover:bg-secondary",
+                  "liquid-chip rounded-full border px-3 py-1 text-xs font-medium transition-colors hover:border-primary/35",
+                  selected && "border-primary/50 text-primary",
                 )}
                 aria-pressed={selected}
               >
@@ -209,8 +209,8 @@ export default function ChatPage() {
         </div>
 
         {/* Input */}
-        <div className="border-t bg-background/40 p-3">
-          <div className="flex items-end gap-2 rounded-2xl border bg-background p-2 shadow-sm focus-within:ring-2 focus-within:ring-ring">
+        <div className="border-t border-white/25 bg-card/20 p-3">
+          <div className="liquid-control flex items-end gap-2 rounded-2xl p-2 focus-within:ring-2 focus-within:ring-ring">
             <Textarea
               value={chat.draft}
               onChange={(e) => dispatch(setDraft(e.target.value))}

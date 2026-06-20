@@ -1,11 +1,15 @@
 import type { Citation } from "@/types/api";
+import { store } from "@/store";
+import { logout, setCredentials } from "@/store/slices/authSlice";
+import type { ApiErrorResponse, TokenResponse } from "@/types/api";
+import { resolveApiBaseUrl } from "@/api/baseUrl";
 import {
   logProcessFailed,
   logProcessFinished,
   logProcessStarted,
 } from "@/lib/processLogger";
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api/v1";
+const apiBaseUrl = resolveApiBaseUrl();
 
 export interface StreamChatPayload {
   question: string;
@@ -28,6 +32,9 @@ export interface StreamHandlers {
   accessToken: string;
 }
 
+const TOKEN_FLUSH_INTERVAL_MS = 80;
+const TOKEN_FLUSH_CHARS = 120;
+
 export async function streamChat(payload: StreamChatPayload, handlers: StreamHandlers) {
   logProcessStarted("Send user question", {
     selectedDocuments: payload.document_ids.length,
@@ -35,25 +42,29 @@ export async function streamChat(payload: StreamChatPayload, handlers: StreamHan
   });
   let response: Response;
   try {
-    response = await fetch(`${apiBaseUrl}/chat`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${handlers.accessToken}`,
-      },
-      body: JSON.stringify({ ...payload, stream: true }),
-      signal: handlers.signal,
-    });
+    response = await openChatStream(payload, handlers.accessToken, handlers.signal);
+    if (response.status === 401) {
+      const refreshedToken = await refreshAccessToken(handlers.signal);
+      if (refreshedToken) {
+        response = await openChatStream(payload, refreshedToken, handlers.signal);
+      }
+    }
   } catch (error) {
     logProcessFailed("Send user question", {
       error: error instanceof Error ? error.message : "Unknown error",
     });
-    throw error;
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
+    throw new Error(
+      "Cannot reach the DocTraceAI API. Check that the backend is running and CORS is allowing this frontend URL.",
+    );
   }
 
   if (!response.ok || !response.body) {
-    logProcessFailed("Send user question", { httpStatus: response.status });
-    handlers.onError?.("Streaming request failed.");
+    const message = await readStreamError(response);
+    logProcessFailed("Send user question", { httpStatus: response.status, error: message });
+    handlers.onError?.(message);
     return;
   }
   logProcessFinished("Send user question", { status: response.status });
@@ -61,7 +72,34 @@ export async function streamChat(payload: StreamChatPayload, handlers: StreamHan
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let tokenBuffer = "";
+  let flushTimer: ReturnType<typeof setTimeout> | null = null;
   let displayStarted = false;
+
+  const flushTokens = () => {
+    if (flushTimer) {
+      clearTimeout(flushTimer);
+      flushTimer = null;
+    }
+    if (!tokenBuffer) {
+      return;
+    }
+    handlers.onToken(tokenBuffer);
+    tokenBuffer = "";
+  };
+
+  const appendToken = (content: string) => {
+    if (!displayStarted) {
+      displayStarted = true;
+      logProcessStarted("Display answer");
+    }
+    tokenBuffer += content;
+    if (tokenBuffer.length >= TOKEN_FLUSH_CHARS || /[\n.!?]\s*$/.test(tokenBuffer)) {
+      flushTokens();
+      return;
+    }
+    flushTimer ??= setTimeout(flushTokens, TOKEN_FLUSH_INTERVAL_MS);
+  };
 
   while (true) {
     const { done, value } = await reader.read();
@@ -85,15 +123,13 @@ export async function streamChat(payload: StreamChatPayload, handlers: StreamHan
         handlers.onMetadata?.(metadata);
       } else if (event.type === "token") {
         const payloadData = JSON.parse(event.data) as { content: string };
-        if (!displayStarted) {
-          displayStarted = true;
-          logProcessStarted("Display answer");
-        }
-        handlers.onToken(payloadData.content);
+        appendToken(payloadData.content);
       } else if (event.type === "done") {
+        flushTokens();
         logProcessFinished("Display answer");
         handlers.onDone?.();
       } else if (event.type === "error") {
+        flushTokens();
         const payloadData = JSON.parse(event.data) as { message?: string };
         logProcessFailed("Display answer", {
           error: payloadData.message ?? "Streaming failed.",
@@ -102,6 +138,64 @@ export async function streamChat(payload: StreamChatPayload, handlers: StreamHan
       }
     }
   }
+  flushTokens();
+}
+
+async function openChatStream(
+  payload: StreamChatPayload,
+  accessToken: string,
+  signal?: AbortSignal,
+) {
+  return fetch(`${apiBaseUrl}/chat`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ ...payload, stream: true }),
+    signal,
+  });
+}
+
+async function refreshAccessToken(signal?: AbortSignal): Promise<string | null> {
+  const refreshToken = store.getState().auth.refreshToken;
+  if (!refreshToken) {
+    return null;
+  }
+  const response = await fetch(`${apiBaseUrl}/auth/refresh`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+    signal,
+  });
+  if (!response.ok) {
+    store.dispatch(logout());
+    return null;
+  }
+  const tokens = (await response.json()) as TokenResponse;
+  store.dispatch(setCredentials(tokens));
+  return tokens.access_token;
+}
+
+async function readStreamError(response: Response): Promise<string> {
+  try {
+    const data = (await response.json()) as ApiErrorResponse;
+    if (data?.error?.message) {
+      return data.error.message;
+    }
+  } catch {
+    // Fall through to status-based message.
+  }
+  if (response.status === 401) {
+    return "Your session expired. Log in again and retry.";
+  }
+  if (response.status === 403) {
+    return "The backend rejected this frontend origin. Check CORS_ORIGINS or restart the backend after the latest fix.";
+  }
+  if (response.status >= 500) {
+    return "The backend failed while generating the answer. Check the backend terminal logs.";
+  }
+  return `Streaming request failed with HTTP ${response.status}.`;
 }
 
 function parseServerSentEvent(rawEvent: string): { type: string; data: string } | null {

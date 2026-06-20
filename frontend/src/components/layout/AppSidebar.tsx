@@ -23,7 +23,7 @@ export function AppSidebar() {
       <aside
         id="app-sidebar"
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r bg-card/90 shadow-soft backdrop-blur-xl transition-transform duration-200 lg:translate-x-0",
+          "liquid-nav fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r transition-transform duration-200 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -49,8 +49,8 @@ export function AppSidebar() {
               onClick={() => dispatch(setMobileMenuOpen(false))}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-3 rounded-2xl px-3 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-secondary hover:text-foreground",
-                  isActive && "bg-primary/10 text-primary shadow-sm",
+                  "flex items-center gap-3 rounded-2xl px-3 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-white/35 hover:text-foreground dark:hover:bg-white/10",
+                  isActive && "liquid-chip text-primary shadow-sm",
                 )
               }
             >

@@ -1,30 +1,29 @@
-FROM python:3.12-slim AS builder
+FROM node:22-bookworm-slim AS production-dependencies
 
-ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PIP_NO_CACHE_DIR=1
-
-WORKDIR /build
-COPY pyproject.toml README.md ./
-COPY app ./app
-RUN python -m pip wheel --wheel-dir /wheels .
-
-FROM builder AS test
-COPY tests ./tests
-RUN python -m pip install ".[dev]"
-CMD ["pytest", "-q", "--disable-warnings", "--maxfail=1"]
-
-FROM python:3.12-slim AS runtime
-
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PATH="/home/app/.local/bin:${PATH}"
-
-RUN groupadd --system app && useradd --system --gid app --create-home app
 WORKDIR /app
-COPY --from=builder /wheels /wheels
-RUN python -m pip install --no-cache-dir /wheels/* && rm -rf /wheels
-COPY alembic.ini ./
-COPY alembic ./alembic
-USER app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+FROM node:22-bookworm-slim AS test
+
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY src ./src
+COPY test ./test
+COPY migrations ./migrations
+COPY scripts ./scripts
+RUN npm test
+
+FROM node:22-bookworm-slim AS runtime
+
+ENV NODE_ENV=production
+WORKDIR /app
+COPY --from=production-dependencies /app/node_modules ./node_modules
+COPY package.json package-lock.json ./
+COPY src ./src
+COPY migrations ./migrations
+COPY scripts ./scripts
+USER node
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips=*"]
+CMD ["node", "src/server.js"]

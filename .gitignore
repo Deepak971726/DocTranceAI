@@ -1,18 +1,9 @@
-# Python
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-htmlcov/
-.venv/
-venv/
-
 # Secrets and local configuration
 .env
 .env.*
 !.env.example
+.venv/
+venv/
 
 # IDE and OS
 .idea/
@@ -23,9 +14,8 @@ Thumbs.db
 # Build artifacts
 dist/
 build/
-*.egg-info/
 
-# Frontend
+# Node
 frontend/node_modules/
 frontend/dist/
-node_modules
+node_modules/
